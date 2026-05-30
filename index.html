@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +68,55 @@ function SVGChart({data,avgCost,color}){
   const area=path+` L${W},${H} L0,${H} Z`;
   const avgY=avgCost>=mn&&avgCost<=mx?py(avgCost).toFixed(1):null;
   const lbls=[0,Math.floor(data.length/2),data.length-1];
+  const enterApp=()=>{localStorage.setItem("mfi_visited","1");setShowWelcome(false);};
+
+  if(showWelcome) return(
+    <div style={{minHeight:"100vh",background:"#0C0A07",display:"flex",alignItems:"flex-end",justifyContent:"center",fontFamily:"'Palatino Linotype',Georgia,serif"}}>
+      <div style={{position:"fixed",inset:0,backgroundImage:"url('https://images.unsplash.com/photo-1566806925366-46c8926ec71c?w=1200&q=80&auto=format&fit=crop')",backgroundSize:"cover",backgroundPosition:"center",filter:"brightness(0.40) saturate(1.1)"}}/>
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(to top,rgba(5,10,20,0.98) 0%,rgba(5,10,20,0.5) 50%,transparent 100%)"}}/>
+      <div style={{position:"relative",zIndex:2,width:"100%",maxWidth:480,padding:"0 22px 44px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
+          <div style={{width:52,height:52,background:"linear-gradient(135deg,#C8A060,#DDB87A)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#050b1a",boxShadow:"0 6px 24px rgba(200,160,60,0.4)",flexShrink:0}}>MFI</div>
+          <div>
+            <div style={{fontSize:24,fontWeight:700,color:"#C8A060",letterSpacing:"0.1em",textTransform:"uppercase",textShadow:"0 0 28px rgba(200,160,96,0.5)"}}>AI Max</div>
+            <div style={{fontSize:9,color:"rgba(200,180,130,0.55)",letterSpacing:"0.2em",textTransform:"uppercase"}}>Monaco Finance International</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
+          {["Portfolio","Lombard","Real Estate","AI Advisory"].map(t=>(
+            <span key={t} style={{fontSize:9,padding:"4px 10px",borderRadius:20,background:"rgba(200,160,60,0.12)",border:"1px solid rgba(200,160,60,0.28)",color:"#DDB87A",letterSpacing:"0.08em"}}>{t}</span>
+          ))}
+        </div>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:14,color:"rgba(200,190,160,0.80)",lineHeight:1.8,marginBottom:16}}>
+            Your private wealth intelligence platform. Track your portfolio, calculate Lombard credit capacity, and get AI-powered financial advice — all in one place.
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {[
+              {icon:"📊",t:"Track P&L vs avg cost",d:"Add positions and monitor performance in real time"},
+              {icon:"🏦",t:"Lombard Credit Calculator",d:"Instant capacity based on asset class ratios"},
+              {icon:"🤖",t:"AI Advisor with live search",d:"Ask about strategy, markets and credit scenarios"},
+            ].map((f,i)=>(
+              <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"10px 14px",background:"rgba(200,160,60,0.07)",border:"1px solid rgba(200,160,60,0.15)",borderRadius:10}}>
+                <span style={{fontSize:18,flexShrink:0}}>{f.icon}</span>
+                <div>
+                  <div style={{fontSize:11,color:"#DDB87A",fontWeight:700,marginBottom:2}}>{f.t}</div>
+                  <div style={{fontSize:10,color:"rgba(200,180,130,0.65)",lineHeight:1.5}}>{f.d}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button onClick={enterApp} style={{width:"100%",background:"linear-gradient(135deg,#C8A060,#DDB87A)",color:"#050b1a",border:"none",borderRadius:14,padding:"16px",fontSize:14,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 6px 24px rgba(200,160,60,0.35)",marginBottom:12}}>
+          ENTER PLATFORM →
+        </button>
+        <div style={{textAlign:"center",fontSize:9,color:"rgba(200,160,60,0.35)",letterSpacing:"0.12em",textTransform:"uppercase"}}>
+          Free · No registration · Your data stays on your device
+        </div>
+      </div>
+    </div>
+  );
+
   return(
     <svg viewBox={`0 0 ${W} ${H+16}`} style={{width:"100%",height:126,display:"block"}}>
       <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.22"/><stop offset="100%" stopColor={color} stopOpacity="0.02"/></linearGradient></defs>
@@ -174,6 +222,7 @@ const INP={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRad
 const GBTN={background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg,border:"none",borderRadius:8,padding:"8px 16px",fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:"0.07em"};
 
 function App(){
+  const [showWelcome,setShowWelcome]=useState(()=>!localStorage.getItem("mfi_visited"));
   const [tab,setTab]=useState("dashboard");
   const [rows,setRows]=useState(()=>loadData("mfi_rows",INIT).map(r=>({...r,value:calcVal(r)})));
   const [realestate,setRE]=useState(()=>loadData("mfi_re",INIT_RE));
@@ -227,29 +276,43 @@ function App(){
     });
   };
 
+  const TD_KEY="e317ea9a7e334aada42f0f58d9b92365";
+
   const refreshPrices=async()=>{
-    if(!apiKey&&!sessionStorage.getItem("mfi_key")){setShowKeyModal(true);return;}
     setPL(true);
-    const tickers=rows.filter(r=>r.ticker).map(r=>r.ticker).join(", ");
+    const tickers=rows.filter(r=>r.ticker&&r.ticker!=="").map(r=>r.ticker);
+    if(!tickers.length){setPL(false);return;}
     try{
-      const res=await callAPI({model:"claude-sonnet-4-20250514",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],
-        system:'Return ONLY valid JSON {"TICKER":price}. XAU=gold spot USD per troy oz. No markdown, no text.',
-        messages:[{role:"user",content:`Current prices for: ${tickers}. JSON only.`}]});
+      const newPrices={};
+      // Twelve Data supports batch: up to 8 symbols per request
+      const batch=tickers.join(",");
+      const res=await fetch(`https://api.twelvedata.com/price?symbol=${batch}&apikey=${TD_KEY}`);
       const d=await res.json();
-      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
-      const m=txt.match(/\{[^{}]+\}/);
-      if(m){
-        const prices=JSON.parse(m[0]);
+      // If single ticker, response is {price:"123"}, if multiple {AAPL:{price:"123"},...}
+      if(tickers.length===1){
+        if(d.price) newPrices[tickers[0]]=parseFloat(d.price);
+      } else {
+        for(const t of tickers){
+          if(d[t]?.price) newPrices[t]=parseFloat(d[t].price);
+        }
+      }
+      // XAU special: Twelve Data uses XAU/USD
+      if(tickers.includes("XAU")&&!newPrices["XAU"]){
+        const xauRes=await fetch(`https://api.twelvedata.com/price?symbol=XAU/USD&apikey=${TD_KEY}`);
+        const xauD=await xauRes.json();
+        if(xauD.price) newPrices["XAU"]=parseFloat(xauD.price);
+      }
+      if(Object.keys(newPrices).length>0){
         setRows(prev=>prev.map(r=>{
-          if(!r.ticker||!prices[r.ticker])return r;
-          const np=parseFloat(prices[r.ticker]);
+          if(!r.ticker||!newPrices[r.ticker])return r;
+          const np=newPrices[r.ticker];
           if(isNaN(np)||np<=0)return r;
           return{...r,price:np,value:calcVal({...r,price:np})};
         }));
         const now=new Date();
         setLU(`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()} ${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}`);
       }
-    }catch(e){if(e.message==="no_key")setShowKeyModal(true);}
+    }catch(e){console.error("Price fetch error",e);}
     setPL(false);
   };
 
