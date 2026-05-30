@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,23 +36,12 @@ const CURS=["EUR","USD","CHF","GBP","JPY"];
 const CAP_OPTS=[{v:"large",l:"Equity >$1B → 65%"},{v:"mid",l:"Equity $500M–$1B → 35%"},{v:"small",l:"Equity <$500M → 35%"},{v:"xau",l:"Gold / XAU → 90%"},{v:"bond",l:"Bond → 85%"},{v:"structured",l:"Structured → 55%"},{v:"realestate",l:"Real Estate → 60%"},{v:"cash",l:"Cash → 100%"},{v:"negative",l:"Debit → 0%"}];
 const CAT_L={large:"Equity>1B",mid:"Equity 500M+",small:"Equity<500M",xau:"Gold",bond:"Bond",structured:"Structured",realestate:"Real Estate",cash:"Cash",negative:"Debit"};
 
-const INIT=[
-  {id:1,name:"XAU (Gold oz)",ticker:"XAU",cat:"xau",qty:3.22,price:4500,avgCost:3200,cur:"USD",bank:"Moncrief Bank",isin:""},
-  {id:2,name:"EUR Overdraft",ticker:"",cat:"negative",qty:0,price:0,avgCost:0,cur:"EUR",bank:"Moncrief Bank",isin:"",fixedVal:-8461.80},
-  {id:3,name:"USD Overdraft",ticker:"",cat:"negative",qty:0,price:0,avgCost:0,cur:"EUR",bank:"Moncrief Bank",isin:"",fixedVal:-3335.89},
-  {id:4,name:"Redwire (RDW)",ticker:"RDW",cat:"large",qty:200,price:25.642,avgCost:10.12,cur:"USD",bank:"Moncrief Bank",isin:"US7566832034"},
-  {id:5,name:"IonQ (IONQ)",ticker:"IONQ",cat:"large",qty:100,price:71,avgCost:49.24,cur:"USD",bank:"Moncrief Bank",isin:"US46266C1053"},
-  {id:6,name:"Kyverna (KYTX)",ticker:"KYTX",cat:"mid",qty:100,price:8.73,avgCost:11.58,cur:"USD",bank:"Moncrief Bank",isin:"US50155Q1067"},
-  {id:7,name:"Lithium Am. (LAC)",ticker:"LAC",cat:"large",qty:1000,price:5.245,avgCost:5.02,cur:"USD",bank:"Moncrief Bank",isin:"US53680Q2075"},
-  {id:8,name:"Onconetix (ONCO)",ticker:"ONCO",cat:"small",qty:1160,price:1.29,avgCost:1.93,cur:"USD",bank:"Moncrief Bank",isin:"US68237Q3020"},
-];
-const INIT_RE=[
-  {id:1,name:"Villa Rebecca",location:"Beausoleil, FR",value:9500000,currency:"EUR",ownership:"SCP D&P",bank:"Moncrief Bank",lombard_pct:0.60,status:"Offer Submitted",notes:"€9.5M offer, Moncrief guarantee"},
-  {id:2,name:"Blvd de Tenao",location:"Monaco",value:2800000,currency:"EUR",ownership:"Personal",bank:"Moncrief Bank",lombard_pct:0.60,status:"Development",notes:"Development project"},
-];
-const INIT_STR=[
-  {id:1,name:"Marex Autocall NVDA/TSLA",isin:"XS2845120034",issuer:"Marex",barrier:60,coupon:12.5,maturity:"2027-03-15",underlyings:"NVDA / TSLA",notional:100000,currency:"EUR",bank:"Moncrief Bank",status:"Active"},
-];
+const INIT=[];
+const INIT_RE=[];
+const INIT_STR=[];
+
+function loadData(key,def){try{const d=localStorage.getItem(key);return d?JSON.parse(d):def;}catch{return def;}}
+function saveData(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
 
 const calcVal=r=>{if(r.fixedVal!==undefined)return r.fixedVal;const u=r.qty*r.price;return r.cur==="USD"?u/FX:u;};
 const fe=(v,c=false)=>{const a=Math.abs(v),neg=v<0;let s;if(c){s=a>=1e6?`€${(a/1e6).toFixed(2)}M`:a>=1e3?`€${(a/1e3).toFixed(1)}K`:`€${a.toFixed(0)}`;}else{s=`€${a.toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}return neg?`−${s}`:s;};
@@ -185,9 +175,9 @@ const GBTN={background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg
 
 function App(){
   const [tab,setTab]=useState("dashboard");
-  const [rows,setRows]=useState(()=>INIT.map(r=>({...r,value:calcVal(r)})));
-  const [realestate,setRE]=useState(INIT_RE);
-  const [structured,setSTR]=useState(INIT_STR);
+  const [rows,setRows]=useState(()=>loadData("mfi_rows",INIT).map(r=>({...r,value:calcVal(r)})));
+  const [realestate,setRE]=useState(()=>loadData("mfi_re",INIT_RE));
+  const [structured,setSTR]=useState(()=>loadData("mfi_str",INIT_STR));
   const [detail,setDetail]=useState(null);
   const [editRow,setEditRow]=useState(null);
   const [showAdd,setShowAdd]=useState(null);
@@ -221,6 +211,9 @@ function App(){
   const totalPnLPct=totalCost>0?(totalPnL/totalCost)*100:0;
 
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"})},[msgs]);
+  useEffect(()=>{saveData("mfi_rows",rows);},[rows]);
+  useEffect(()=>{saveData("mfi_re",realestate);},[realestate]);
+  useEffect(()=>{saveData("mfi_str",structured);},[structured]);
 
   const saveKey=()=>{const k=keyInput.trim();if(!k)return;setApiKey(k);sessionStorage.setItem("mfi_key",k);setShowKeyModal(false);setKeyInput("");};
 
