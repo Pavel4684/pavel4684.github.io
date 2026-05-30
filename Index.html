@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>AI Max — Monaco Finance</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Max">
+<meta name="theme-color" content="#070f28">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0C0A07;color:#F0E6CC;font-family:'Palatino Linotype',Palatino,Georgia,serif;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+input,select,button{font-family:inherit}
+input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;background:rgba(200,160,96,0.2);outline:none;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#C8A060,#DDB87A);cursor:pointer}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(200,160,96,0.3);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+
+const C={bg:"#0C0A07",bg1:"#111009",bg2:"#1C1610",bg3:"#231A0E",gold:"#C8A060",goldL:"#DDB87A",goldP:"#EDD9A8",cream:"#F0E6CC",green:"#4CAF7D",red:"#C0392B",blue:"#5B8FD4",gray:"#7A6E5E",grayL:"#A09080",border:"rgba(200,160,96,0.18)",borderHi:"rgba(200,160,96,0.40)"};
+const LR={xau:0.90,large:0.65,mid:0.35,small:0.35,cash:1.00,negative:0.00,bond:0.85,structured:0.55,realestate:0.60};
+const FX=1.16985;
+const BANKS=["Moncrief Bank","UBS","Pictet","CFM Indosuez","BNP Paribas","Interactive Brokers","Saxo Bank","Swissquote","Other"];
+const CURS=["EUR","USD","CHF","GBP","JPY"];
+const CAP_OPTS=[{v:"large",l:"Equity >$1B → 65%"},{v:"mid",l:"Equity $500M–$1B → 35%"},{v:"small",l:"Equity <$500M → 35%"},{v:"xau",l:"Gold / XAU → 90%"},{v:"bond",l:"Bond → 85%"},{v:"structured",l:"Structured → 55%"},{v:"realestate",l:"Real Estate → 60%"},{v:"cash",l:"Cash → 100%"},{v:"negative",l:"Debit → 0%"}];
+const CAT_L={large:"Equity>1B",mid:"Equity 500M+",small:"Equity<500M",xau:"Gold",bond:"Bond",structured:"Structured",realestate:"Real Estate",cash:"Cash",negative:"Debit"};
+
+const INIT=[
+  {id:1,name:"XAU (Gold oz)",ticker:"XAU",cat:"xau",qty:3.22,price:4500,avgCost:3200,cur:"USD",bank:"Moncrief Bank",isin:""},
+  {id:2,name:"EUR Overdraft",ticker:"",cat:"negative",qty:0,price:0,avgCost:0,cur:"EUR",bank:"Moncrief Bank",isin:"",fixedVal:-8461.80},
+  {id:3,name:"USD Overdraft",ticker:"",cat:"negative",qty:0,price:0,avgCost:0,cur:"EUR",bank:"Moncrief Bank",isin:"",fixedVal:-3335.89},
+  {id:4,name:"Redwire (RDW)",ticker:"RDW",cat:"large",qty:200,price:25.642,avgCost:10.12,cur:"USD",bank:"Moncrief Bank",isin:"US7566832034"},
+  {id:5,name:"IonQ (IONQ)",ticker:"IONQ",cat:"large",qty:100,price:71,avgCost:49.24,cur:"USD",bank:"Moncrief Bank",isin:"US46266C1053"},
+  {id:6,name:"Kyverna (KYTX)",ticker:"KYTX",cat:"mid",qty:100,price:8.73,avgCost:11.58,cur:"USD",bank:"Moncrief Bank",isin:"US50155Q1067"},
+  {id:7,name:"Lithium Am. (LAC)",ticker:"LAC",cat:"large",qty:1000,price:5.245,avgCost:5.02,cur:"USD",bank:"Moncrief Bank",isin:"US53680Q2075"},
+  {id:8,name:"Onconetix (ONCO)",ticker:"ONCO",cat:"small",qty:1160,price:1.29,avgCost:1.93,cur:"USD",bank:"Moncrief Bank",isin:"US68237Q3020"},
+];
+const INIT_RE=[
+  {id:1,name:"Villa Rebecca",location:"Beausoleil, FR",value:9500000,currency:"EUR",ownership:"SCP D&P",bank:"Moncrief Bank",lombard_pct:0.60,status:"Offer Submitted",notes:"€9.5M offer, Moncrief guarantee"},
+  {id:2,name:"Blvd de Tenao",location:"Monaco",value:2800000,currency:"EUR",ownership:"Personal",bank:"Moncrief Bank",lombard_pct:0.60,status:"Development",notes:"Development project"},
+];
+const INIT_STR=[
+  {id:1,name:"Marex Autocall NVDA/TSLA",isin:"XS2845120034",issuer:"Marex",barrier:60,coupon:12.5,maturity:"2027-03-15",underlyings:"NVDA / TSLA",notional:100000,currency:"EUR",bank:"Moncrief Bank",status:"Active"},
+];
+
+const calcVal=r=>{if(r.fixedVal!==undefined)return r.fixedVal;const u=r.qty*r.price;return r.cur==="USD"?u/FX:u;};
+const fe=(v,c=false)=>{const a=Math.abs(v),neg=v<0;let s;if(c){s=a>=1e6?`€${(a/1e6).toFixed(2)}M`:a>=1e3?`€${(a/1e3).toFixed(1)}K`:`€${a.toFixed(0)}`;}else{s=`€${a.toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}return neg?`−${s}`:s;};
+const fp=v=>{const s=v>=0?"+":"";return`${s}${v.toFixed(2)}%`;};
+
+function genHistory(cur,avg,days){
+  const data=[];let p=avg*(1+(Math.random()-0.4)*0.15);
+  const trend=(cur-p)/days;
+  for(let i=0;i<days;i++){
+    p=Math.max(p+trend+p*(Math.random()-0.48)*0.025,cur*0.05);
+    const d=new Date();d.setDate(d.getDate()-(days-i));
+    const lbl=days<=7?d.toLocaleDateString("fr-FR",{weekday:"short"}):days<=31?d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"}):d.toLocaleDateString("fr-FR",{month:"short",year:"2-digit"});
+    data.push({lbl,price:parseFloat(p.toFixed(3))});
+  }
+  data[data.length-1].price=cur;return data;
+}
+
+function SVGChart({data,avgCost,color}){
+  const W=300,H=110;
+  const prices=data.map(d=>d.price);
+  const mn=Math.min(...prices)*0.985,mx=Math.max(...prices)*1.015;
+  const px=i=>(i/(data.length-1))*W;
+  const py=p=>H-((p-mn)/(mx-mn))*H;
+  const path=data.map((d,i)=>`${i===0?"M":"L"}${px(i).toFixed(1)},${py(d.price).toFixed(1)}`).join(" ");
+  const area=path+` L${W},${H} L0,${H} Z`;
+  const avgY=avgCost>=mn&&avgCost<=mx?py(avgCost).toFixed(1):null;
+  const lbls=[0,Math.floor(data.length/2),data.length-1];
+  return(
+    <svg viewBox={`0 0 ${W} ${H+16}`} style={{width:"100%",height:126,display:"block"}}>
+      <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.22"/><stop offset="100%" stopColor={color} stopOpacity="0.02"/></linearGradient></defs>
+      <path d={area} fill="url(#ag)"/>
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+      {avgY&&<><line x1="0" y1={avgY} x2={W} y2={avgY} stroke={C.gold} strokeWidth="1" strokeDasharray="5,3" opacity="0.7"/>
+        <text x={W-2} y={parseFloat(avgY)-3} fill={C.gold} fontSize="7" textAnchor="end" opacity="0.85">avg ${avgCost}</text></>}
+      <circle cx={px(data.length-1)} cy={py(data[data.length-1].price)} r="3.5" fill={color}/>
+      {lbls.map((i,k)=><text key={k} x={k===0?2:k===1?W/2:W-2} y={H+13} fill="#7A6E5E" fontSize="7" textAnchor={k===0?"start":k===1?"middle":"end"}>{data[i].lbl}</text>)}
+    </svg>
+  );
+}
+
+function PositionDrawer({row,onClose}){
+  const [tf,setTf]=useState("1M");
+  const days=tf==="1W"?7:tf==="1M"?30:365;
+  const data=genHistory(row.price,row.avgCost||row.price,days);
+  const color=row.price>=(row.avgCost||0)?C.green:C.red;
+  const pnlPct=row.avgCost>0?((row.price-row.avgCost)/row.avgCost)*100:0;
+  const pnlEur=row.qty>0?(row.price-row.avgCost)*row.qty/FX:0;
+  const tfChg=((row.price-data[0].price)/data[0].price)*100;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300}} onClick={onClose}>
+      <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:"18px 18px 0 0",padding:"16px 18px 32px",width:"100%",maxWidth:520,maxHeight:"82vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:36,height:4,borderRadius:2,background:C.gray,margin:"0 auto 14px",opacity:0.4}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:C.cream}}>{row.name}</div>
+            <div style={{fontSize:9,color:C.gray,marginTop:2}}>{row.ticker&&`${row.ticker} · `}{row.isin||""} · {row.bank}</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.gray,cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          {[{l:"Price",v:`$${row.price}`,c:C.goldL},{l:"Avg Cost",v:`$${row.avgCost||"—"}`,c:C.grayL},{l:`Chg ${tf}`,v:fp(tfChg),c:tfChg>=0?C.green:C.red}].map((k,i)=>(
+            <div key={i} style={{background:C.bg3,borderRadius:8,padding:"8px 10px",border:`1px solid ${C.border}`}}>
+              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>{k.l}</div>
+              <div style={{fontSize:13,fontWeight:700,color:k.c}}>{k.v}</div>
+            </div>
+          ))}
+        </div>
+        {row.qty>0&&row.avgCost>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <div style={{background:pnlPct>=0?"rgba(76,175,125,0.10)":"rgba(192,57,43,0.10)",borderRadius:8,padding:"10px 12px",border:`1px solid ${pnlPct>=0?"rgba(76,175,125,0.3)":"rgba(192,57,43,0.3)"}`}}>
+              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>P&L vs Avg Cost</div>
+              <div style={{fontSize:18,fontWeight:700,color:pnlPct>=0?C.green:C.red}}>{fp(pnlPct)}</div>
+            </div>
+            <div style={{background:"rgba(200,160,96,0.07)",borderRadius:8,padding:"10px 12px",border:`1px solid ${C.border}`}}>
+              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>P&L EUR</div>
+              <div style={{fontSize:18,fontWeight:700,color:pnlPct>=0?C.green:C.red}}>{(pnlEur>=0?"+":"")+fe(pnlEur,true)}</div>
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:6,marginBottom:10}}>
+          {["1W","1M","1Y"].map(t=>(
+            <button key={t} onClick={()=>setTf(t)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${t===tf?C.gold:C.border}`,background:t===tf?`linear-gradient(135deg,${C.gold},${C.goldL})`:"transparent",color:t===tf?C.bg:C.grayL,fontSize:11,fontWeight:t===tf?700:400,cursor:"pointer"}}>{t}</button>
+          ))}
+        </div>
+        <div style={{background:C.bg,borderRadius:10,padding:"12px 8px 4px",border:`1px solid ${C.border}`}}>
+          <SVGChart data={data} avgCost={row.avgCost||0} color={color}/>
+          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>Dashed = avg cost · Illustrative</div>
+        </div>
+        {row.qty>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginTop:10}}>
+            {[{l:"Qty",v:row.qty.toLocaleString()},{l:"Value EUR",v:fe(calcVal(row),true)},{l:`Lombard ${Math.round(LR[row.cat]*100)}%`,v:fe(Math.max(0,calcVal(row))*LR[row.cat],true)},{l:"Cost EUR",v:fe((row.avgCost||0)*row.qty/FX,true)},{l:"Category",v:CAT_L[row.cat]},{l:"Currency",v:row.cur}].map((k,i)=>(
+              <div key={i} style={{background:C.bg3,borderRadius:7,padding:"7px 9px"}}>
+                <div style={{fontSize:8,color:C.gray,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:2}}>{k.l}</div>
+                <div style={{fontSize:10,color:C.cream,fontWeight:600}}>{k.v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Tag({cat}){
+  const cols={xau:C.gold,large:C.blue,mid:"#8A6FBF",small:C.gray,bond:C.green,structured:"#C08040",realestate:"#40A0A0",cash:C.green,negative:C.red};
+  return <span style={{background:`${cols[cat]||C.gray}20`,border:`1px solid ${cols[cat]||C.gray}45`,borderRadius:4,padding:"2px 6px",fontSize:9,color:cols[cat]||C.gray,letterSpacing:"0.04em",display:"inline-block",whiteSpace:"nowrap"}}>{CAT_L[cat]||cat}</span>;
+}
+function PctBar({pct,col=C.gold}){
+  return <div style={{height:4,borderRadius:2,background:"rgba(200,160,96,0.07)",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(pct*100,100)}%`,background:`linear-gradient(90deg,${col},${C.goldL})`,borderRadius:2,transition:"width .6s"}}/></div>;
+}
+function KPI({label,value,sub,col=C.gold}){
+  return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:12,padding:"12px 14px",borderTop:`2px solid ${col}`}}>
+    <div style={{fontSize:9,color:C.gray,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:4}}>{label}</div>
+    <div style={{fontSize:17,fontWeight:700,color:col,lineHeight:1}}>{value}</div>
+    {sub&&<div style={{fontSize:9,color:C.grayL,marginTop:3}}>{sub}</div>}
+  </div>;
+}
+function Modal({title,onClose,children}){
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onClose}>
+    <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:16,padding:"20px",width:"92%",maxWidth:420,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:10,color:C.gold,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:700}}>{title}</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:C.gray,cursor:"pointer",fontSize:18,lineHeight:1}}>✕</button>
+      </div>
+      {children}
+    </div>
+  </div>;
+}
+const INP={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.cream,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:8};
+const GBTN={background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg,border:"none",borderRadius:8,padding:"8px 16px",fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:"0.07em"};
+
+function App(){
+  const [tab,setTab]=useState("dashboard");
+  const [rows,setRows]=useState(()=>INIT.map(r=>({...r,value:calcVal(r)})));
+  const [realestate,setRE]=useState(INIT_RE);
+  const [structured,setSTR]=useState(INIT_STR);
+  const [detail,setDetail]=useState(null);
+  const [editRow,setEditRow]=useState(null);
+  const [showAdd,setShowAdd]=useState(null);
+  const [newItem,setNewItem]=useState({});
+  const [priceLoading,setPL]=useState(false);
+  const [lastUpdate,setLU]=useState("29.05.2026");
+  const [apiKey,setApiKey]=useState(()=>sessionStorage.getItem("mfi_key")||"");
+  const [showKeyModal,setShowKeyModal]=useState(false);
+  const [keyInput,setKeyInput]=useState("");
+  const [msgs,setMsgs]=useState([{role:"assistant",text:"Bonjour. Je suis AI Max — ваш персональный финансовый советник Monaco Finance International.\n\nЯ знаю ваш полный портфель, недвижимость и ломбардные лимиты в реальном времени.\n\nСпросите меня о стратегии, конкретной позиции или кредитных сценариях.\n\n— AI Max · Monaco Finance International"}]);
+  const [query,setQuery]=useState("");
+  const [aiLoading,setAIL]=useState(false);
+  const [simLTV,setSimLTV]=useState(70);
+  const [simRate,setSimRate]=useState(1.2);
+  const endRef=useRef(null);
+
+  const gross=rows.filter(r=>r.value>0).reduce((s,r)=>s+r.value,0);
+  const net=rows.reduce((s,r)=>s+r.value,0);
+  const lombF=rows.reduce((s,r)=>s+Math.max(0,r.value)*LR[r.cat],0);
+  const reTotal=realestate.reduce((s,r)=>s+(r.currency==="USD"?r.value/FX:r.value),0);
+  const reLomb=realestate.reduce((s,r)=>s+(r.currency==="USD"?r.value/FX:r.value)*r.lombard_pct,0);
+  const strTotal=structured.reduce((s,r)=>s+(r.currency==="USD"?r.notional/FX:r.notional),0);
+  const strLomb=strTotal*0.55;
+  const totalA=gross+reTotal+strTotal;
+  const totalL=lombF+reLomb+strLomb;
+  const liquidity=totalL*0.85;
+  const credit=totalL*(simLTV/100);
+  const anCost=credit*(simRate/100);
+  const totalPnL=rows.filter(r=>r.qty>0&&r.avgCost>0).reduce((s,r)=>s+(r.price-r.avgCost)*r.qty/FX,0);
+  const totalCost=rows.filter(r=>r.qty>0&&r.avgCost>0).reduce((s,r)=>s+r.avgCost*r.qty/FX,0);
+  const totalPnLPct=totalCost>0?(totalPnL/totalCost)*100:0;
+
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"})},[msgs]);
+
+  const saveKey=()=>{const k=keyInput.trim();if(!k)return;setApiKey(k);sessionStorage.setItem("mfi_key",k);setShowKeyModal(false);setKeyInput("");};
+
+  const callAPI=async(body)=>{
+    const k=apiKey||sessionStorage.getItem("mfi_key");
+    if(!k)throw new Error("no_key");
+    return fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify(body)
+    });
+  };
+
+  const refreshPrices=async()=>{
+    if(!apiKey&&!sessionStorage.getItem("mfi_key")){setShowKeyModal(true);return;}
+    setPL(true);
+    const tickers=rows.filter(r=>r.ticker).map(r=>r.ticker).join(", ");
+    try{
+      const res=await callAPI({model:"claude-sonnet-4-20250514",max_tokens:500,tools:[{type:"web_search_20250305",name:"web_search"}],
+        system:'Return ONLY valid JSON {"TICKER":price}. XAU=gold spot USD per troy oz. No markdown, no text.',
+        messages:[{role:"user",content:`Current prices for: ${tickers}. JSON only.`}]});
+      const d=await res.json();
+      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      const m=txt.match(/\{[^{}]+\}/);
+      if(m){
+        const prices=JSON.parse(m[0]);
+        setRows(prev=>prev.map(r=>{
+          if(!r.ticker||!prices[r.ticker])return r;
+          const np=parseFloat(prices[r.ticker]);
+          if(isNaN(np)||np<=0)return r;
+          return{...r,price:np,value:calcVal({...r,price:np})};
+        }));
+        const now=new Date();
+        setLU(`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()} ${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}`);
+      }
+    }catch(e){if(e.message==="no_key")setShowKeyModal(true);}
+    setPL(false);
+  };
+
+  const sendAI=async()=>{
+    if(!apiKey&&!sessionStorage.getItem("mfi_key")){setShowKeyModal(true);return;}
+    if(!query.trim()||aiLoading)return;
+    const q=query.trim();setQuery("");setMsgs(m=>[...m,{role:"user",text:q}]);setAIL(true);
+    const ps=rows.map(r=>`${r.name}(${r.cat},L${Math.round(LR[r.cat]*100)}%):${fe(r.value,true)}${r.ticker?`@$${r.price}avg$${r.avgCost}qty${r.qty}`:""}`).join(";");
+    try{
+      const res=await callAPI({model:"claude-sonnet-4-20250514",max_tokens:1000,tools:[{type:"web_search_20250305",name:"web_search"}],
+        system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds en russe ou anglais selon la langue du client. Concis, 4 paragraphes max, sans emojis.
+Portfolio: ${ps}
+Real Estate: Villa Rebecca €9.5M, Tenao €2.8M | Structured: ${fe(strTotal,true)}
+Assets: ${fe(totalA,true)} | Lombard: ${fe(totalL,true)} | Liquidity: ${fe(liquidity,true)} | P&L: ${fp(totalPnLPct)}
+FX: 1USD=${(1/FX).toFixed(4)}EUR | Date: ${lastUpdate}
+Termine toujours par — AI Max`,
+        messages:[...msgs.slice(-8).map(m=>({role:m.role,content:m.text})),{role:"user",content:q}]});
+      const d=await res.json();
+      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Service unavailable.";
+      setMsgs(m=>[...m,{role:"assistant",text:txt}]);
+    }catch(e){
+      if(e.message==="no_key"){setShowKeyModal(true);setMsgs(m=>m.slice(0,-1));}
+      else setMsgs(m=>[...m,{role:"assistant",text:"Ошибка соединения.\n— AI Max"}]);
+    }
+    setAIL(false);
+  };
+
+  const card={background:C.bg2,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px"};
+  const sec={fontSize:9,color:C.gold,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontWeight:700};
+  const TH={color:C.gray,fontSize:9,letterSpacing:"0.09em",textTransform:"uppercase",textAlign:"left",paddingBottom:6,borderBottom:`1px solid ${C.border}`};
+  const TD={padding:"8px 3px",borderBottom:`1px solid rgba(200,160,96,0.05)`,verticalAlign:"middle"};
+  const TABS=[{id:"dashboard",l:"Dashboard"},{id:"portfolio",l:"Portfolio"},{id:"realestate",l:"RE"},{id:"structured",l:"Structured"},{id:"lombard",l:"Lombard"},{id:"simulator",l:"Simulator"},{id:"ai",l:"AI Max"}];
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,color:C.cream,display:"flex",flexDirection:"column"}}>
+
+      {/* ── HEADER ── */}
+      <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"10px 15px",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:34,height:34,borderRadius:9,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:C.bg,flexShrink:0,boxShadow:`0 3px 12px rgba(200,160,60,0.3)`}}>MFI</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase"}}>AI Max</div>
+              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em"}}>Monaco Finance · {lastUpdate}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button onClick={refreshPrices} disabled={priceLoading} style={{background:"rgba(200,160,96,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:7,padding:"5px 10px",color:priceLoading?C.gray:C.goldL,fontSize:9,cursor:priceLoading?"not-allowed":"pointer",letterSpacing:"0.05em"}}>
+              {priceLoading?"⟳ …":"⟳ Live"}
+            </button>
+            <button onClick={()=>{setKeyInput(apiKey);setShowKeyModal(true);}} style={{background:"rgba(200,160,96,0.06)",border:`1px solid ${C.border}`,borderRadius:7,padding:"5px 9px",color:apiKey?C.green:C.gray,fontSize:12,cursor:"pointer"}} title="API Key">{apiKey?"🔑":"🔒"}</button>
+          </div>
+        </div>
+        <nav style={{display:"flex",gap:2,background:C.bg3,borderRadius:9,padding:3,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 9px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,letterSpacing:"0.04em",background:tab===t.id?`linear-gradient(135deg,${C.gold},${C.goldL})`:"transparent",color:tab===t.id?C.bg:C.gray,fontWeight:tab===t.id?700:400,whiteSpace:"nowrap",flexShrink:0,transition:"all .2s"}}>
+              {t.l}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div style={{flex:1,padding:"13px 15px",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+
+        {/* ── DASHBOARD ── */}
+        {tab==="dashboard"&&(
+          <>
+            <div style={{position:"relative",borderRadius:16,overflow:"hidden",marginBottom:13,minHeight:215,border:`1px solid ${C.borderHi}`}}>
+              <div style={{position:"absolute",inset:0,backgroundImage:"url('https://images.unsplash.com/photo-1566806925366-46c8926ec71c?w=1200&q=80&auto=format&fit=crop')",backgroundSize:"cover",backgroundPosition:"center 40%",filter:"brightness(0.47) saturate(1.1)"}}/>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,rgba(5,10,25,0.78) 0%,rgba(8,16,40,0.44) 55%,rgba(5,10,20,0.88) 100%)"}}/>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:`linear-gradient(90deg,transparent,${C.gold},transparent)`}}/>
+              <div style={{position:"relative",zIndex:2,padding:"20px 18px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:10}}>
+                  <div style={{width:50,height:50,borderRadius:14,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:C.bg,boxShadow:`0 6px 24px rgba(200,160,60,0.40)`}}>MFI</div>
+                  <div>
+                    <div style={{fontSize:21,fontWeight:700,color:C.gold,letterSpacing:"0.13em",textTransform:"uppercase",textShadow:`0 0 28px rgba(200,160,96,0.55)`}}>AI Max</div>
+                    <div style={{fontSize:9,color:C.grayL,letterSpacing:"0.2em",textTransform:"uppercase"}}>Monaco Finance International</div>
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"rgba(200,190,160,0.72)",lineHeight:1.7,marginBottom:14}}>Private Wealth · Lombard Finance · Real Estate · AI Advisory</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {[{l:"Total Assets",v:fe(totalA,true),col:"rgba(200,160,50,0.12)",bc:"rgba(200,160,50,0.32)",tc:C.gold},
+                    {l:"Lombard Available",v:fe(liquidity,true),col:"rgba(76,175,125,0.10)",bc:"rgba(76,175,125,0.26)",tc:C.green},
+                    {l:"Total P&L",v:(totalPnLPct>=0?"+":"")+totalPnLPct.toFixed(1)+"%",col:totalPnL>=0?"rgba(76,175,125,0.10)":"rgba(192,57,43,0.10)",bc:totalPnL>=0?"rgba(76,175,125,0.26)":"rgba(192,57,43,0.26)",tc:totalPnL>=0?C.green:C.red}
+                  ].map((k,i)=>(
+                    <div key={i} style={{background:k.col,border:`1px solid ${k.bc}`,borderRadius:10,padding:"9px 13px"}}>
+                      <div style={{fontSize:8,color:C.gray,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:2}}>{k.l}</div>
+                      <div style={{fontSize:15,color:k.tc,fontWeight:700}}>{k.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
+              <KPI label="Gross Financial" value={fe(gross,true)} col={C.goldL}/>
+              <KPI label="Total Lombard" value={fe(totalL,true)} col={C.blue}/>
+              <KPI label="Real Estate" value={fe(reTotal,true)} col="#40A0A0"/>
+              <KPI label="P&L EUR" value={fe(totalPnL,true)} col={totalPnL>=0?C.green:C.red}/>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1.8fr 1fr",gap:11}}>
+              <div style={card}>
+                <div style={sec}>Positions — tap for chart</div>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    <th style={TH}>Position</th>
+                    <th style={{...TH,textAlign:"right"}}>P&L</th>
+                    <th style={{...TH,textAlign:"right"}}>Value €</th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.filter(r=>r.value!==0).sort((a,b)=>b.value-a.value).map(r=>{
+                      const pnl=r.avgCost>0&&r.qty>0?((r.price-r.avgCost)/r.avgCost)*100:null;
+                      return(
+                        <tr key={r.id} onClick={()=>r.ticker&&setDetail(r)} style={{cursor:r.ticker?"pointer":"default"}}
+                          onTouchStart={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.05)"}}
+                          onTouchEnd={e=>{e.currentTarget.style.background="transparent"}}
+                          onMouseEnter={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
+                          onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+                          <td style={TD}><div style={{fontWeight:600,color:C.cream,fontSize:11}}>{r.name}</div><Tag cat={r.cat}/></td>
+                          <td style={{...TD,textAlign:"right"}}>{pnl!==null&&<span style={{fontSize:11,color:pnl>=0?C.green:C.red,fontWeight:600}}>{fp(pnl)}</span>}</td>
+                          <td style={{...TD,textAlign:"right",color:r.value<0?C.red:C.goldL,fontWeight:600,fontSize:11}}>{fe(r.value)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                <div style={card}>
+                  <div style={sec}>Lombard</div>
+                  {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Real Estate",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
+                    <div key={i} style={{marginBottom:9}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}>
+                        <span style={{color:C.grayL}}>{item.l}</span>
+                        <span style={{color:C.green,fontWeight:600}}>{fe(item.v,true)}</span>
+                      </div>
+                      <PctBar pct={item.t>0?item.v/item.t:0} col={item.col}/>
+                    </div>
+                  ))}
+                  <div style={{marginTop:8,paddingTop:7,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontSize:9,color:C.gray}}>TOTAL</span>
+                    <span style={{fontSize:13,color:C.gold,fontWeight:700}}>{fe(totalL,true)}</span>
+                  </div>
+                </div>
+                <div style={card}>
+                  <div style={sec}>P&L</div>
+                  {rows.filter(r=>r.qty>0&&r.avgCost>0).sort((a,b)=>b.value-a.value).map(r=>{
+                    const p=((r.price-r.avgCost)/r.avgCost)*100;
+                    return <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7,cursor:"pointer"}} onClick={()=>setDetail(r)}>
+                      <span style={{fontSize:10,color:C.grayL}}>{r.ticker}</span>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:11,color:p>=0?C.green:C.red,fontWeight:700}}>{fp(p)}</div>
+                        <div style={{fontSize:8,color:C.gray}}>${r.avgCost}→${r.price}</div>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── PORTFOLIO ── */}
+        {tab==="portfolio"&&(
+          <div style={card}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
+              <div style={sec}>All Positions · Tap for Chart</div>
+              <button style={GBTN} onClick={()=>{setNewItem({name:"",ticker:"",isin:"",cat:"large",qty:"",price:"",avgCost:"",cur:"USD",bank:"Moncrief Bank"});setShowAdd("portfolio");}}>+ Add</button>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+              <thead><tr>
+                <th style={TH}>Name / ISIN</th><th style={TH}>Cat</th>
+                <th style={{...TH,textAlign:"right"}}>Qty</th><th style={{...TH,textAlign:"right"}}>Price/Avg</th>
+                <th style={{...TH,textAlign:"right"}}>P&L</th><th style={{...TH,textAlign:"right"}}>Value €</th>
+                <th style={{...TH,textAlign:"right"}}>Lombard</th><th style={TH}></th>
+              </tr></thead>
+              <tbody>
+                {rows.map(r=>{
+                  const pnl=r.avgCost>0&&r.qty>0?((r.price-r.avgCost)/r.avgCost)*100:null;
+                  return(
+                    <tr key={r.id} onClick={()=>r.ticker&&setDetail(r)} style={{cursor:r.ticker?"pointer":"default"}}
+                      onMouseEnter={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+                      <td style={TD}><div style={{fontWeight:600,color:C.cream}}>{r.name}</div>{r.isin&&<div style={{fontSize:8,color:C.gray}}>{r.isin}</div>}</td>
+                      <td style={TD}><Tag cat={r.cat}/></td>
+                      <td style={{...TD,textAlign:"right",color:C.grayL}}>{r.qty||"—"}</td>
+                      <td style={{...TD,textAlign:"right"}}>{r.price?<><div style={{color:C.goldL,fontWeight:600}}>${r.price}</div><div style={{fontSize:8,color:C.gray}}>avg ${r.avgCost||"—"}</div></>:<span style={{fontSize:10,color:C.grayL}}>{fe(r.fixedVal||0)}</span>}</td>
+                      <td style={{...TD,textAlign:"right"}}>{pnl!==null&&<span style={{fontSize:11,color:pnl>=0?C.green:C.red,fontWeight:600}}>{fp(pnl)}</span>}</td>
+                      <td style={{...TD,textAlign:"right",color:r.value<0?C.red:C.goldL,fontWeight:600}}>{fe(r.value)}</td>
+                      <td style={{...TD,textAlign:"right",color:r.value>0?C.green:C.gray,fontSize:10}}>{r.value>0?fe(r.value*LR[r.cat]):"—"}</td>
+                      <td style={{...TD,textAlign:"right"}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>setEditRow({...r})} style={{background:"rgba(200,160,96,0.1)",border:`1px solid ${C.border}`,color:C.goldL,borderRadius:5,padding:"3px 6px",fontSize:9,cursor:"pointer",marginRight:2}}>✎</button>
+                        <button onClick={()=>setRows(p=>p.filter(x=>x.id!==r.id))} style={{background:"rgba(192,57,43,0.1)",border:"1px solid rgba(192,57,43,0.3)",color:C.red,borderRadius:5,padding:"3px 6px",fontSize:9,cursor:"pointer"}}>✕</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{marginTop:10,paddingTop:8,borderTop:`1px solid ${C.borderHi}`,display:"flex",justifyContent:"flex-end",gap:16}}>
+              {[{l:"Net",v:fe(net)},{l:"P&L",v:fp(totalPnLPct),c:totalPnL>=0?C.green:C.red},{l:"Lombard",v:fe(lombF),c:C.green}].map((k,i)=>(
+                <div key={i} style={{textAlign:"right"}}>
+                  <div style={{fontSize:8,color:C.gray,textTransform:"uppercase",letterSpacing:"0.09em"}}>{k.l}</div>
+                  <div style={{fontSize:14,color:k.c||C.gold,fontWeight:700}}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── REAL ESTATE ── */}
+        {tab==="realestate"&&(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
+              <KPI label="Total RE" value={fe(reTotal,true)} col={C.gold}/>
+              <KPI label="Lombard 60%" value={fe(reLomb,true)} col={C.green}/>
+            </div>
+            <div style={card}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={sec}>Properties</div>
+                <button style={GBTN} onClick={()=>{setNewItem({name:"",location:"",value:"",currency:"EUR",ownership:"",bank:"Moncrief Bank",lombard_pct:0.60,status:"Active",notes:""});setShowAdd("realestate");}}>+ Add</button>
+              </div>
+              {realestate.map(r=>(
+                <div key={r.id} style={{marginBottom:11,padding:"13px 14px",background:C.bg3,borderRadius:10,border:`1px solid ${C.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
+                    <div><div style={{fontSize:13,fontWeight:700,color:C.cream}}>{r.name}</div><div style={{fontSize:9,color:C.gray}}>{r.location} · {r.ownership}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:15,color:C.gold,fontWeight:700}}>€{(r.value/1e6).toFixed(2)}M</div><span style={{fontSize:9,padding:"2px 6px",borderRadius:4,background:"rgba(74,143,212,0.15)",color:C.blue}}>{r.status}</span></div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:7}}>
+                    {[{l:"Lombard",v:`€${((r.value*r.lombard_pct)/1e6).toFixed(2)}M`},{l:"Rate",v:`${Math.round(r.lombard_pct*100)}%`},{l:"Bank",v:r.bank}].map((k,i)=>(
+                      <div key={i} style={{background:C.bg2,borderRadius:6,padding:"6px 8px"}}>
+                        <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>{k.l}</div>
+                        <div style={{fontSize:10,color:C.goldL,fontWeight:600}}>{k.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {r.notes&&<div style={{fontSize:9,color:C.gray,fontStyle:"italic",marginBottom:7}}>{r.notes}</div>}
+                  <div style={{display:"flex",justifyContent:"flex-end"}}>
+                    <button onClick={()=>setRE(p=>p.filter(x=>x.id!==r.id))} style={{background:"rgba(192,57,43,0.08)",border:"1px solid rgba(192,57,43,0.25)",color:C.red,borderRadius:5,padding:"4px 10px",fontSize:9,cursor:"pointer"}}>✕ Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── STRUCTURED ── */}
+        {tab==="structured"&&(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
+              <KPI label="Total Notional" value={fe(strTotal,true)} col={C.gold}/>
+              <KPI label="Lombard 55%" value={fe(strLomb,true)} col={C.green}/>
+            </div>
+            <div style={card}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={sec}>Structured Products</div>
+                <button style={GBTN} onClick={()=>{setNewItem({name:"",isin:"",issuer:"",barrier:60,coupon:10,maturity:"",underlyings:"",notional:"",currency:"EUR",bank:"Moncrief Bank",status:"Active"});setShowAdd("structured");}}>+ Add</button>
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr>
+                  <th style={TH}>Name / ISIN</th><th style={TH}>Issuer</th>
+                  <th style={{...TH,textAlign:"center"}}>Barrier</th><th style={{...TH,textAlign:"center"}}>Coupon</th>
+                  <th style={TH}>Maturity</th><th style={TH}>Underlyings</th>
+                  <th style={{...TH,textAlign:"right"}}>Notional</th><th style={{...TH,textAlign:"right"}}>Lombard</th><th style={TH}></th>
+                </tr></thead>
+                <tbody>
+                  {structured.map(r=>{
+                    const n=r.currency==="USD"?r.notional/FX:r.notional;
+                    return(
+                      <tr key={r.id}>
+                        <td style={TD}><div style={{fontWeight:600,color:C.cream}}>{r.name}</div><div style={{fontSize:8,color:C.gray}}>{r.isin}</div></td>
+                        <td style={{...TD,color:C.grayL,fontSize:10}}>{r.issuer}</td>
+                        <td style={{...TD,textAlign:"center"}}><span style={{color:r.barrier<50?C.red:r.barrier<70?C.goldL:C.green,fontWeight:600}}>{r.barrier}%</span></td>
+                        <td style={{...TD,textAlign:"center",color:C.green,fontWeight:600}}>{r.coupon}%</td>
+                        <td style={{...TD,color:C.grayL,fontSize:9}}>{r.maturity}</td>
+                        <td style={{...TD,color:C.grayL,fontSize:9}}>{r.underlyings}</td>
+                        <td style={{...TD,textAlign:"right",color:C.goldL,fontWeight:600}}>{fe(n)}</td>
+                        <td style={{...TD,textAlign:"right",color:C.green,fontWeight:600}}>{fe(n*0.55)}</td>
+                        <td style={{...TD,textAlign:"right"}}><button onClick={()=>setSTR(p=>p.filter(x=>x.id!==r.id))} style={{background:"none",border:"none",color:C.gray,cursor:"pointer",fontSize:13}}>✕</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── LOMBARD ── */}
+        {tab==="lombard"&&(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
+              <KPI label="Total Assets" value={fe(totalA,true)} col={C.gold}/>
+              <KPI label="Total Lombard" value={fe(totalL,true)} col={C.blue}/>
+              <KPI label="Liquidity 85%" value={fe(liquidity,true)} col={C.green}/>
+              <KPI label="Portfolio LTV" value={`${Math.round(totalL/totalA*100)}%`} col={C.goldL}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1.7fr",gap:11}}>
+              <div style={card}>
+                <div style={sec}>By Class</div>
+                {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Real Estate",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
+                  <div key={i} style={{marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}><span style={{color:C.cream,fontWeight:600}}>{item.l}</span><span style={{color:C.green,fontWeight:700}}>{fe(item.v,true)}</span></div>
+                    <PctBar pct={item.t>0?item.v/item.t:0} col={item.col}/>
+                    <div style={{display:"flex",justifyContent:"space-between",marginTop:2,fontSize:9,color:C.gray}}><span>{fe(item.t,true)}</span><span>{item.t>0?Math.round(item.v/item.t*100):0}%</span></div>
+                  </div>
+                ))}
+                <div style={{marginTop:9,paddingTop:8,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:9,color:C.gray}}>TOTAL</span>
+                  <span style={{fontSize:16,color:C.gold,fontWeight:700}}>{fe(totalL,true)}</span>
+                </div>
+              </div>
+              <div style={card}>
+                <div style={sec}>Position Detail</div>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+                  <thead><tr><th style={TH}>Position</th><th style={{...TH,textAlign:"center"}}>Rate</th><th style={{...TH,textAlign:"right"}}>Value €</th><th style={{...TH,textAlign:"right"}}>Lombard €</th></tr></thead>
+                  <tbody>
+                    {rows.filter(r=>r.value>0).sort((a,b)=>b.value-a.value).map(r=>(
+                      <tr key={r.id}>
+                        <td style={{...TD,color:C.cream,fontWeight:500}}>{r.name}</td>
+                        <td style={{...TD,textAlign:"center",color:C.goldL,fontWeight:600,fontSize:9}}>{Math.round(LR[r.cat]*100)}%</td>
+                        <td style={{...TD,textAlign:"right",color:C.cream}}>{fe(r.value)}</td>
+                        <td style={{...TD,textAlign:"right",color:C.green,fontWeight:600}}>{fe(r.value*LR[r.cat])}</td>
+                      </tr>
+                    ))}
+                    <tr><td colSpan={3} style={{...TD,textAlign:"right",color:C.gray,fontSize:8,textTransform:"uppercase"}}>TOTAL FINANCIAL</td><td style={{...TD,textAlign:"right",color:C.gold,fontWeight:700,fontSize:13}}>{fe(lombF)}</td></tr>
+                  </tbody>
+                </table>
+                <div style={{marginTop:9,padding:"9px 11px",background:"rgba(200,160,96,0.04)",border:`1px solid ${C.border}`,borderRadius:8,fontSize:9,color:C.gray,lineHeight:1.9}}>
+                  Moncrief Bank · EURIBOR+1.2% · Min €250K · 1st rank pledge · 3–5 days
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── SIMULATOR ── */}
+        {tab==="simulator"&&(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
+              {[{l:"Credit Amount",v:fe(credit,true),c:C.goldL},{l:"Annual Cost",v:fe(anCost,true),c:C.cream},{l:"Monthly Cost",v:fe(anCost/12,true),c:C.cream},{l:"Net Available",v:fe(credit-anCost,true),c:C.green}].map((k,i)=>(
+                <div key={i} style={{...card,background:"rgba(200,160,96,0.06)",border:`1px solid ${C.borderHi}`}}>
+                  <div style={{fontSize:9,color:C.gray,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:3}}>{k.l}</div>
+                  <div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={card}>
+              <div style={sec}>Parameters</div>
+              {[{label:"Loan-to-Value",val:simLTV,set:setSimLTV,min:10,max:85,step:5,fmt:v=>`${v}%`,lo:"10% Conservative",hi:"85% Maximum"},{label:"Interest Rate p.a.",val:simRate,set:setSimRate,min:0.5,max:4.0,step:0.1,fmt:v=>`${v.toFixed(1)}%`,lo:"0.5% Best",hi:"4.0% Standard"}].map((s,i)=>(
+                <div key={i} style={{marginBottom:20}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:11,color:C.grayL}}>{s.label}</span><span style={{fontSize:13,color:C.goldL,fontWeight:700}}>{s.fmt(s.val)}</span></div>
+                  <input type="range" min={s.min} max={s.max} step={s.step} value={s.val} onChange={e=>s.set(parseFloat(e.target.value))}/>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:8,color:C.gray,marginTop:2}}><span>{s.lo}</span><span>{s.hi}</span></div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── AI MAX ── */}
+        {tab==="ai"&&(
+          <div style={{...card,display:"flex",flexDirection:"column",height:"calc(100vh - 200px)"}}>
+            <div style={{...sec,display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:C.bg}}>AI</div>
+              AI Max · Personal Wealth Advisor
+              {!apiKey&&<span style={{marginLeft:"auto",fontSize:9,color:C.red,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowKeyModal(true)}>🔒 Set API Key</span>}
+            </div>
+            <div style={{marginBottom:8,display:"flex",gap:5,flexWrap:"wrap"}}>
+              {["Lombard capacity","Gold strategy","IONQ outlook","Credit €500K","Portfolio risk"].map(q=>(
+                <button key={q} onClick={()=>setQuery(q)} style={{background:"rgba(200,160,96,0.07)",border:`1px solid ${C.border}`,borderRadius:16,padding:"4px 10px",fontSize:10,color:C.goldL,cursor:"pointer"}}>{q}</button>
+              ))}
+            </div>
+            <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:9,padding:"2px 0",WebkitOverflowScrolling:"touch"}}>
+              {msgs.map((m,i)=>(
+                <div key={i} style={{maxWidth:"86%",alignSelf:m.role==="user"?"flex-end":"flex-start",background:m.role==="user"?"rgba(200,160,96,0.09)":C.bg3,border:m.role==="user"?`1px solid ${C.borderHi}`:`1px solid rgba(200,160,96,0.07)`,borderRadius:m.role==="user"?"12px 12px 0 12px":"12px 12px 12px 0",padding:"9px 12px",fontSize:11,lineHeight:1.75,color:m.role==="user"?C.goldP:C.cream}}>
+                  {m.role==="assistant"&&<div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>}
+                  <div style={{whiteSpace:"pre-wrap"}}>{m.text}</div>
+                </div>
+              ))}
+              {aiLoading&&<div style={{maxWidth:"86%",background:C.bg3,borderRadius:"12px 12px 12px 0",padding:"9px 12px"}}>
+                <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>
+                <span style={{color:C.gray,fontSize:11}}>Analysing…</span>
+              </div>}
+              <div ref={endRef}/>
+            </div>
+            <div style={{display:"flex",gap:6,padding:"9px 0 0",borderTop:`1px solid ${C.border}`}}>
+              <input style={{...INP,flex:1,marginBottom:0}} placeholder="Спросите AI Max о портфеле, рынках, стратегии…"
+                value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendAI()}/>
+              <button style={GBTN} onClick={sendAI} disabled={aiLoading}>{aiLoading?"…":"→"}</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {detail&&<PositionDrawer row={detail} onClose={()=>setDetail(null)}/>}
+
+      {/* API KEY MODAL */}
+      {showKeyModal&&(
+        <Modal title="Anthropic API Key" onClose={()=>setShowKeyModal(false)}>
+          <div style={{fontSize:10,color:C.grayL,lineHeight:1.8,marginBottom:12}}>
+            Нужен для AI Max и ⟳ Live Prices.<br/>
+            Получить: <span style={{color:C.gold}}>console.anthropic.com</span> → API Keys
+          </div>
+          <input style={{...INP,fontSize:12,letterSpacing:"0.03em"}} type="password" placeholder="sk-ant-api03-…"
+            value={keyInput} onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}/>
+          {apiKey&&<div style={{fontSize:9,color:C.green,marginBottom:8}}>✓ Key saved for this session</div>}
+          <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}>
+            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setShowKeyModal(false)}>Cancel</button>
+            <button style={GBTN} onClick={saveKey}>Save</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* EDIT MODAL */}
+      {editRow&&(
+        <Modal title="Edit Position" onClose={()=>setEditRow(null)}>
+          <input style={INP} placeholder="Name" value={editRow.name} onChange={e=>setEditRow(p=>({...p,name:e.target.value}))}/>
+          <input style={INP} placeholder="Ticker" value={editRow.ticker||""} onChange={e=>setEditRow(p=>({...p,ticker:e.target.value.toUpperCase()}))}/>
+          <select style={INP} value={editRow.cat} onChange={e=>setEditRow(p=>({...p,cat:e.target.value}))}>
+            {CAP_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
+          {editRow.fixedVal!==undefined
+            ?<input style={INP} placeholder="Balance EUR" type="number" value={editRow.fixedVal} onChange={e=>setEditRow(p=>({...p,fixedVal:parseFloat(e.target.value)}))}/>
+            :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+              <input style={INP} placeholder="Qty" type="number" value={editRow.qty} onChange={e=>setEditRow(p=>({...p,qty:parseFloat(e.target.value)}))}/>
+              <input style={INP} placeholder="Price" type="number" value={editRow.price} onChange={e=>setEditRow(p=>({...p,price:parseFloat(e.target.value)}))}/>
+              <input style={INP} placeholder="Avg Cost" type="number" value={editRow.avgCost||""} onChange={e=>setEditRow(p=>({...p,avgCost:parseFloat(e.target.value)}))}/>
+            </div>
+          }
+          <div style={{display:"flex",gap:7,justifyContent:"flex-end",marginTop:4}}>
+            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setEditRow(null)}>Cancel</button>
+            <button style={GBTN} onClick={()=>{setRows(p=>p.map(r=>r.id===editRow.id?{...editRow,value:calcVal(editRow)}:r));setEditRow(null);}}>Save</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ADD PORTFOLIO */}
+      {showAdd==="portfolio"&&(
+        <Modal title="Add Position" onClose={()=>setShowAdd(null)}>
+          {[{ph:"Name",key:"name"},{ph:"Ticker",key:"ticker"},{ph:"ISIN",key:"isin"}].map(f=>(
+            <input key={f.key} style={INP} placeholder={f.ph} value={newItem[f.key]||""} onChange={e=>setNewItem(p=>({...p,[f.key]:f.key==="ticker"?e.target.value.toUpperCase():e.target.value}))}/>
+          ))}
+          <select style={INP} value={newItem.cat||"large"} onChange={e=>setNewItem(p=>({...p,cat:e.target.value}))}>
+            {CAP_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            <input style={INP} placeholder="Qty" type="number" value={newItem.qty||""} onChange={e=>setNewItem(p=>({...p,qty:e.target.value}))}/>
+            <input style={INP} placeholder="Price $" type="number" value={newItem.price||""} onChange={e=>setNewItem(p=>({...p,price:e.target.value}))}/>
+            <input style={INP} placeholder="Avg Cost $" type="number" value={newItem.avgCost||""} onChange={e=>setNewItem(p=>({...p,avgCost:e.target.value}))}/>
+          </div>
+          <select style={INP} value={newItem.cur||"USD"} onChange={e=>setNewItem(p=>({...p,cur:e.target.value}))}>
+            {CURS.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <select style={INP} value={newItem.bank||"Moncrief Bank"} onChange={e=>setNewItem(p=>({...p,bank:e.target.value}))}>
+            {BANKS.map(b=><option key={b}>{b}</option>)}
+          </select>
+          <div style={{display:"flex",gap:7,justifyContent:"flex-end",marginTop:4}}>
+            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setShowAdd(null)}>Cancel</button>
+            <button style={GBTN} onClick={()=>{
+              if(!newItem.name||!newItem.qty||!newItem.price)return;
+              const qty=parseFloat(newItem.qty),price=parseFloat(newItem.price),avg=parseFloat(newItem.avgCost)||0;
+              const val=newItem.cur==="USD"?qty*price/FX:qty*price;
+              setRows(p=>[...p,{id:Date.now(),...newItem,qty,price,avgCost:avg,value:val,isin:newItem.isin||""}]);
+              setShowAdd(null);
+            }}>Add</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ADD RE */}
+      {showAdd==="realestate"&&(
+        <Modal title="Add Property" onClose={()=>setShowAdd(null)}>
+          {[{ph:"Property name",key:"name"},{ph:"Location",key:"location"},{ph:"Market value",key:"value",t:"number"},{ph:"Ownership entity",key:"ownership"},{ph:"Notes",key:"notes"}].map(f=>(
+            <input key={f.key} style={INP} placeholder={f.ph} type={f.t||"text"} value={newItem[f.key]||""} onChange={e=>setNewItem(p=>({...p,[f.key]:e.target.value}))}/>
+          ))}
+          <select style={INP} value={newItem.currency||"EUR"} onChange={e=>setNewItem(p=>({...p,currency:e.target.value}))}>
+            {CURS.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <div style={{display:"flex",gap:7,justifyContent:"flex-end",marginTop:4}}>
+            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setShowAdd(null)}>Cancel</button>
+            <button style={GBTN} onClick={()=>{
+              if(!newItem.name||!newItem.value)return;
+              setRE(p=>[...p,{id:Date.now(),...newItem,value:parseFloat(newItem.value),lombard_pct:0.60,status:"Active"}]);
+              setShowAdd(null);
+            }}>Add</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ADD STRUCTURED */}
+      {showAdd==="structured"&&(
+        <Modal title="Add Structured Product" onClose={()=>setShowAdd(null)}>
+          {[{ph:"Product name",key:"name"},{ph:"ISIN",key:"isin"},{ph:"Issuer",key:"issuer"},{ph:"Underlyings (NVDA/TSLA)",key:"underlyings"},{ph:"Maturity (YYYY-MM-DD)",key:"maturity"},{ph:"Notional amount",key:"notional",t:"number"}].map(f=>(
+            <input key={f.key} style={INP} placeholder={f.ph} type={f.t||"text"} value={newItem[f.key]||""} onChange={e=>setNewItem(p=>({...p,[f.key]:e.target.value}))}/>
+          ))}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            <input style={INP} placeholder="Barrier %" type="number" value={newItem.barrier||""} onChange={e=>setNewItem(p=>({...p,barrier:parseFloat(e.target.value)}))}/>
+            <input style={INP} placeholder="Coupon %" type="number" value={newItem.coupon||""} onChange={e=>setNewItem(p=>({...p,coupon:parseFloat(e.target.value)}))}/>
+          </div>
+          <select style={INP} value={newItem.currency||"EUR"} onChange={e=>setNewItem(p=>({...p,currency:e.target.value}))}>
+            {CURS.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <div style={{display:"flex",gap:7,justifyContent:"flex-end",marginTop:4}}>
+            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setShowAdd(null)}>Cancel</button>
+            <button style={GBTN} onClick={()=>{
+              if(!newItem.name||!newItem.notional)return;
+              setSTR(p=>[...p,{id:Date.now(),...newItem,notional:parseFloat(newItem.notional),status:"Active"}]);
+              setShowAdd(null);
+            }}>Add</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById('root'));
+</script>
+</body>
+</html>
