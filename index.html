@@ -128,9 +128,9 @@ function PositionDrawer({row,onClose,portfolioContext}){
     setAILoading(true);
     setAIAns("");
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const res=await fetch("/api/chat.js",{
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-haiku-4-5-20251001",
           max_tokens:600,
@@ -399,9 +399,9 @@ function App(){
     const q=query.trim();setQuery("");setMsgs(m=>[...m,{role:"user",text:q}]);setAIL(true);
     const ps=rows.map(r=>`${r.name}(${r.cat},L${Math.round(LR[r.cat]*100)}%):${fe(r.value,true)}${r.ticker?`@$${r.price}avg$${r.avgCost}qty${r.qty}`:""}`).join(";");
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const res=await fetch("/api/chat.js",{
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,tools:[{type:"web_search_20250305",name:"web_search"}],
           system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds en russe ou anglais selon la langue du client. Concis, 4 paragraphes max, sans emojis.
 Portfolio: ${ps}
