@@ -128,7 +128,7 @@ function PositionDrawer({row,onClose,portfolioContext}){
     setAILoading(true);
     setAIAns("");
     try{
-      const res=await fetch("/api/chat.js",{
+      const res=await fetch("/API/chat.js",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
@@ -399,7 +399,7 @@ function App(){
     const q=query.trim();setQuery("");setMsgs(m=>[...m,{role:"user",text:q}]);setAIL(true);
     const ps=rows.map(r=>`${r.name}(${r.cat},L${Math.round(LR[r.cat]*100)}%):${fe(r.value,true)}${r.ticker?`@$${r.price}avg$${r.avgCost}qty${r.qty}`:""}`).join(";");
     try{
-      const res=await fetch("/api/chat.js",{
+      const res=await fetch("/API/chat.js",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,tools:[{type:"web_search_20250305",name:"web_search"}],
