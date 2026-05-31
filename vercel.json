@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "API/*.js": {
+      "memory": 1024
+    }
+  }
+}
