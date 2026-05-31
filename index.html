@@ -15,17 +15,21 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0C0A07;color:#F0E6CC;font-family:'Palatino Linotype',Palatino,Georgia,serif;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
-input,select,button{font-family:inherit}
+input,select,button,textarea{font-family:inherit}
 input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;background:rgba(200,160,96,0.2);outline:none;width:100%}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#C8A060,#DDB87A);cursor:pointer}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:rgba(200,160,96,0.3);border-radius:2px}
+textarea{resize:none}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useRef}=React;
+
+const ANTHROPIC_KEY="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";
+const TD_KEY="e317ea9a7e334aada42f0f58d9b92365";
 
 const C={bg:"#0C0A07",bg1:"#111009",bg2:"#1C1610",bg3:"#231A0E",gold:"#C8A060",goldL:"#DDB87A",goldP:"#EDD9A8",cream:"#F0E6CC",green:"#4CAF7D",red:"#C0392B",blue:"#5B8FD4",gray:"#7A6E5E",grayL:"#A09080",border:"rgba(200,160,96,0.18)",borderHi:"rgba(200,160,96,0.40)"};
 const LR={xau:0.90,large:0.65,mid:0.35,small:0.35,cash:1.00,negative:0.00,bond:0.85,structured:0.55,realestate:0.60};
@@ -35,13 +39,9 @@ const CURS=["EUR","USD","CHF","GBP","JPY"];
 const CAP_OPTS=[{v:"large",l:"Equity >$1B → 65%"},{v:"mid",l:"Equity $500M–$1B → 35%"},{v:"small",l:"Equity <$500M → 35%"},{v:"xau",l:"Gold / XAU → 90%"},{v:"bond",l:"Bond → 85%"},{v:"structured",l:"Structured → 55%"},{v:"realestate",l:"Real Estate → 60%"},{v:"cash",l:"Cash → 100%"},{v:"negative",l:"Debit → 0%"}];
 const CAT_L={large:"Equity>1B",mid:"Equity 500M+",small:"Equity<500M",xau:"Gold",bond:"Bond",structured:"Structured",realestate:"Real Estate",cash:"Cash",negative:"Debit"};
 
-const INIT=[];
-const INIT_RE=[];
-const INIT_STR=[];
-
+const INIT=[];const INIT_RE=[];const INIT_STR=[];
 function loadData(key,def){try{const d=localStorage.getItem(key);return d?JSON.parse(d):def;}catch{return def;}}
 function saveData(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
-
 const calcVal=r=>{if(r.fixedVal!==undefined)return r.fixedVal;const u=r.qty*r.price;return r.cur==="USD"?u/FX:u;};
 const fe=(v,c=false)=>{const a=Math.abs(v),neg=v<0;let s;if(c){s=a>=1e6?`€${(a/1e6).toFixed(2)}M`:a>=1e3?`€${(a/1e3).toFixed(1)}K`:`€${a.toFixed(0)}`;}else{s=`€${a.toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}return neg?`−${s}`:s;};
 const fp=v=>{const s=v>=0?"+":"";return`${s}${v.toFixed(2)}%`;};
@@ -68,55 +68,6 @@ function SVGChart({data,avgCost,color}){
   const area=path+` L${W},${H} L0,${H} Z`;
   const avgY=avgCost>=mn&&avgCost<=mx?py(avgCost).toFixed(1):null;
   const lbls=[0,Math.floor(data.length/2),data.length-1];
-  const enterApp=()=>{localStorage.setItem("mfi_visited","1");setShowWelcome(false);};
-
-  if(showWelcome) return(
-    <div style={{minHeight:"100vh",background:"#0C0A07",display:"flex",alignItems:"flex-end",justifyContent:"center",fontFamily:"'Palatino Linotype',Georgia,serif"}}>
-      <div style={{position:"fixed",inset:0,backgroundImage:"url('https://images.unsplash.com/photo-1566806925366-46c8926ec71c?w=1200&q=80&auto=format&fit=crop')",backgroundSize:"cover",backgroundPosition:"center",filter:"brightness(0.40) saturate(1.1)"}}/>
-      <div style={{position:"fixed",inset:0,background:"linear-gradient(to top,rgba(5,10,20,0.98) 0%,rgba(5,10,20,0.5) 50%,transparent 100%)"}}/>
-      <div style={{position:"relative",zIndex:2,width:"100%",maxWidth:480,padding:"0 22px 44px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
-          <div style={{width:52,height:52,background:"linear-gradient(135deg,#C8A060,#DDB87A)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#050b1a",boxShadow:"0 6px 24px rgba(200,160,60,0.4)",flexShrink:0}}>MFI</div>
-          <div>
-            <div style={{fontSize:24,fontWeight:700,color:"#C8A060",letterSpacing:"0.1em",textTransform:"uppercase",textShadow:"0 0 28px rgba(200,160,96,0.5)"}}>AI Max</div>
-            <div style={{fontSize:9,color:"rgba(200,180,130,0.55)",letterSpacing:"0.2em",textTransform:"uppercase"}}>Monaco Finance International</div>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
-          {["Portfolio","Lombard","Real Estate","AI Advisory"].map(t=>(
-            <span key={t} style={{fontSize:9,padding:"4px 10px",borderRadius:20,background:"rgba(200,160,60,0.12)",border:"1px solid rgba(200,160,60,0.28)",color:"#DDB87A",letterSpacing:"0.08em"}}>{t}</span>
-          ))}
-        </div>
-        <div style={{marginBottom:24}}>
-          <div style={{fontSize:14,color:"rgba(200,190,160,0.80)",lineHeight:1.8,marginBottom:16}}>
-            Your private wealth intelligence platform. Track your portfolio, calculate Lombard credit capacity, and get AI-powered financial advice — all in one place.
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {[
-              {icon:"📊",t:"Track P&L vs avg cost",d:"Add positions and monitor performance in real time"},
-              {icon:"🏦",t:"Lombard Credit Calculator",d:"Instant capacity based on asset class ratios"},
-              {icon:"🤖",t:"AI Advisor with live search",d:"Ask about strategy, markets and credit scenarios"},
-            ].map((f,i)=>(
-              <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"10px 14px",background:"rgba(200,160,60,0.07)",border:"1px solid rgba(200,160,60,0.15)",borderRadius:10}}>
-                <span style={{fontSize:18,flexShrink:0}}>{f.icon}</span>
-                <div>
-                  <div style={{fontSize:11,color:"#DDB87A",fontWeight:700,marginBottom:2}}>{f.t}</div>
-                  <div style={{fontSize:10,color:"rgba(200,180,130,0.65)",lineHeight:1.5}}>{f.d}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <button onClick={enterApp} style={{width:"100%",background:"linear-gradient(135deg,#C8A060,#DDB87A)",color:"#050b1a",border:"none",borderRadius:14,padding:"16px",fontSize:14,fontWeight:700,letterSpacing:"0.1em",cursor:"pointer",fontFamily:"inherit",boxShadow:"0 6px 24px rgba(200,160,60,0.35)",marginBottom:12}}>
-          ENTER PLATFORM →
-        </button>
-        <div style={{textAlign:"center",fontSize:9,color:"rgba(200,160,60,0.35)",letterSpacing:"0.12em",textTransform:"uppercase"}}>
-          Free · No registration · Your data stays on your device
-        </div>
-      </div>
-    </div>
-  );
-
   return(
     <svg viewBox={`0 0 ${W} ${H+16}`} style={{width:"100%",height:126,display:"block"}}>
       <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.22"/><stop offset="100%" stopColor={color} stopOpacity="0.02"/></linearGradient></defs>
@@ -125,22 +76,81 @@ function SVGChart({data,avgCost,color}){
       {avgY&&<><line x1="0" y1={avgY} x2={W} y2={avgY} stroke={C.gold} strokeWidth="1" strokeDasharray="5,3" opacity="0.7"/>
         <text x={W-2} y={parseFloat(avgY)-3} fill={C.gold} fontSize="7" textAnchor="end" opacity="0.85">avg ${avgCost}</text></>}
       <circle cx={px(data.length-1)} cy={py(data[data.length-1].price)} r="3.5" fill={color}/>
-      {lbls.map((i,k)=><text key={k} x={k===0?2:k===1?W/2:W-2} y={H+13} fill="#7A6E5E" fontSize="7" textAnchor={k===0?"start":k===1?"middle":"end"}>{data[i].lbl}</text>)}
+      {lbls.map((i,k)=><text key={k} x={k===0?2:k===1?W/2:W-2} y={H+13} fill="#7A6E5E" fontSize="7" textAnchor={k===0?"start":k===1?"middle":"end"}>{data[i]&&data[i].lbl}</text>)}
     </svg>
   );
 }
 
-function PositionDrawer({row,onClose}){
+function PositionDrawer({row,onClose,portfolioContext}){
   const [tf,setTf]=useState("1M");
+  const [chartData,setChartData]=useState(null);
+  const [chartLoading,setChartLoading]=useState(false);
+  const [aiQ,setAIQ]=useState("");
+  const [aiAns,setAIAns]=useState("");
+  const [aiLoading,setAILoading]=useState(false);
+
   const days=tf==="1W"?7:tf==="1M"?30:365;
-  const data=genHistory(row.price,row.avgCost||row.price,days);
   const color=row.price>=(row.avgCost||0)?C.green:C.red;
   const pnlPct=row.avgCost>0?((row.price-row.avgCost)/row.avgCost)*100:0;
   const pnlEur=row.qty>0?(row.price-row.avgCost)*row.qty/FX:0;
-  const tfChg=((row.price-data[0].price)/data[0].price)*100;
+
+  const fetchChart=async(ticker,interval,outputsize)=>{
+    if(!ticker)return;
+    setChartLoading(true);
+    try{
+      const sym=ticker==="XAU"?"XAU/USD":ticker;
+      const res=await fetch(`/API/prices.js?symbol=${encodeURIComponent(sym)}&interval=${interval}&outputsize=${outputsize}`);
+      const d=await res.json();
+      if(d.values&&d.values.length>0){
+        const vals=[...d.values].reverse();
+        const parsed=vals.map(v=>({
+          lbl:v.datetime.slice(5,10),
+          price:parseFloat(v.close)
+        }));
+        setChartData(parsed);
+      }
+    }catch(e){console.error(e);}
+    setChartLoading(false);
+  };
+
+  useEffect(()=>{
+    const interval=tf==="1W"?"1h":tf==="1M"?"1day":"1week";
+    const outputsize=tf==="1W"?48:tf==="1M"?30:52;
+    if(row.ticker) fetchChart(row.ticker,interval,outputsize);
+    else setChartData(null);
+  },[tf,row.ticker]);
+
+  const displayData=chartData||genHistory(row.price,row.avgCost||row.price,days);
+  const tfChg=displayData.length>1?((displayData[displayData.length-1].price-displayData[0].price)/displayData[0].price)*100:0;
+
+  const askAI=async()=>{
+    if(!aiQ.trim()||aiLoading)return;
+    setAILoading(true);
+    setAIAns("");
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({
+          model:"claude-haiku-4-5-20251001",
+          max_tokens:600,
+          system:`Tu es AI Max — conseiller financier privé Monaco Finance International. Réponds en russe, concis, 3 paragraphes max, sans emojis.
+Position analysée: ${row.name} (${row.ticker||"—"}) | Prix: $${row.price} | Avg Cost: $${row.avgCost||"—"} | Qty: ${row.qty} | P&L: ${fp(pnlPct)} | Valeur: ${fe(calcVal(row),true)}
+${portfolioContext}
+Termine par — AI Max`,
+          messages:[{role:"user",content:aiQ}]
+        })
+      });
+      const d=await res.json();
+      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Ошибка.";
+      setAIAns(txt);
+    }catch(e){setAIAns("Ошибка соединения.");}
+    setAILoading(false);
+  };
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300}} onClick={onClose}>
-      <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:"18px 18px 0 0",padding:"16px 18px 32px",width:"100%",maxWidth:520,maxHeight:"82vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:"18px 18px 0 0",padding:"16px 18px 32px",width:"100%",maxWidth:520,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{width:36,height:4,borderRadius:2,background:C.gray,margin:"0 auto 14px",opacity:0.4}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
           <div>
@@ -174,12 +184,12 @@ function PositionDrawer({row,onClose}){
             <button key={t} onClick={()=>setTf(t)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${t===tf?C.gold:C.border}`,background:t===tf?`linear-gradient(135deg,${C.gold},${C.goldL})`:"transparent",color:t===tf?C.bg:C.grayL,fontSize:11,fontWeight:t===tf?700:400,cursor:"pointer"}}>{t}</button>
           ))}
         </div>
-        <div style={{background:C.bg,borderRadius:10,padding:"12px 8px 4px",border:`1px solid ${C.border}`}}>
-          <SVGChart data={data} avgCost={row.avgCost||0} color={color}/>
-          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>Dashed = avg cost · Illustrative</div>
+        <div style={{background:C.bg,borderRadius:10,padding:"12px 8px 4px",border:`1px solid ${C.border}`,marginBottom:12}}>
+          {chartLoading?<div style={{height:126,display:"flex",alignItems:"center",justifyContent:"center",color:C.gray,fontSize:11}}>Загрузка графика…</div>:<SVGChart data={displayData} avgCost={row.avgCost||0} color={color}/>}
+          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>{chartData?"Twelve Data · Live":"Illustrative · no ticker"} · Dashed = avg cost</div>
         </div>
         {row.qty>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginTop:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:14}}>
             {[{l:"Qty",v:row.qty.toLocaleString()},{l:"Value EUR",v:fe(calcVal(row),true)},{l:`Lombard ${Math.round(LR[row.cat]*100)}%`,v:fe(Math.max(0,calcVal(row))*LR[row.cat],true)},{l:"Cost EUR",v:fe((row.avgCost||0)*row.qty/FX,true)},{l:"Category",v:CAT_L[row.cat]},{l:"Currency",v:row.cur}].map((k,i)=>(
               <div key={i} style={{background:C.bg3,borderRadius:7,padding:"7px 9px"}}>
                 <div style={{fontSize:8,color:C.gray,letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:2}}>{k.l}</div>
@@ -188,6 +198,25 @@ function PositionDrawer({row,onClose}){
             ))}
           </div>
         )}
+        {/* AI ANALYSIS SECTION */}
+        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
+          <div style={{fontSize:9,color:C.gold,letterSpacing:"0.15em",textTransform:"uppercase",marginBottom:8,fontWeight:700}}>🤖 AI Max — Анализ позиции</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+            {["Стоит ли держать?","Риски?","Цель по цене?","Докупить?"].map(q=>(
+              <button key={q} onClick={()=>setAIQ(q)} style={{background:"rgba(200,160,96,0.07)",border:`1px solid ${C.border}`,borderRadius:14,padding:"4px 9px",fontSize:9,color:C.goldL,cursor:"pointer"}}>{q}</button>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <textarea style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px",color:C.cream,fontSize:12,outline:"none",height:52}} placeholder="Спросите AI Max об этой позиции…" value={aiQ} onChange={e=>setAIQ(e.target.value)}/>
+            <button onClick={askAI} disabled={aiLoading} style={{background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg,border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:aiLoading?"not-allowed":"pointer"}}>{aiLoading?"…":"→"}</button>
+          </div>
+          {(aiLoading||aiAns)&&(
+            <div style={{marginTop:10,background:C.bg3,border:`1px solid rgba(200,160,96,0.12)`,borderRadius:10,padding:"10px 12px"}}>
+              <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:5,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>
+              {aiLoading?<div style={{color:C.gray,fontSize:11}}>Анализирую…</div>:<div style={{fontSize:11,lineHeight:1.75,color:C.cream,whiteSpace:"pre-wrap"}}>{aiAns}</div>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -221,6 +250,66 @@ function Modal({title,onClose,children}){
 const INP={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.cream,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:8};
 const GBTN={background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg,border:"none",borderRadius:8,padding:"8px 16px",fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:"0.07em"};
 
+/* ── LANDING PAGE ── */
+function LandingPage({onEnter}){
+  return(
+    <div style={{minHeight:"100vh",background:"#08090f",fontFamily:"'Palatino Linotype',Georgia,serif",overflow:"hidden",position:"relative"}}>
+      {/* Background photo */}
+      <div style={{position:"fixed",inset:0,backgroundImage:"url('https://images.unsplash.com/photo-1566806925366-46c8926ec71c?w=1200&q=80&auto=format&fit=crop')",backgroundSize:"cover",backgroundPosition:"center 30%",filter:"brightness(0.28) saturate(0.9)"}}/>
+      {/* Gradient overlay */}
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(180deg,rgba(8,9,15,0.55) 0%,rgba(8,9,15,0.30) 35%,rgba(8,9,15,0.75) 75%,rgba(8,9,15,0.97) 100%)"}}/>
+
+      {/* Content */}
+      <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 28px 36px",textAlign:"center"}}>
+
+        {/* NF Monogram */}
+        <div style={{marginBottom:20}}>
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+            <text x="26" y="40" textAnchor="middle" fontFamily="Palatino Linotype,Georgia,serif" fontSize="38" fontWeight="700" fill="#F0E6CC" letterSpacing="-2">NF</text>
+          </svg>
+        </div>
+
+        {/* Main title */}
+        <div style={{fontSize:42,fontWeight:700,color:"#F0E6CC",lineHeight:1.05,letterSpacing:"-0.01em",marginBottom:10,maxWidth:420}}>
+          Monaco Finance AI
+        </div>
+
+        {/* Subtitle */}
+        <div style={{fontSize:26,fontWeight:400,color:"#F0E6CC",lineHeight:1.2,letterSpacing:"0.01em",marginBottom:18,maxWidth:420}}>
+          The Private Banker in Your Pocket
+        </div>
+
+        {/* Tagline */}
+        <div style={{fontSize:13,color:"#C8A060",letterSpacing:"0.04em",marginBottom:32,fontStyle:"italic"}}>
+          Pure intelligence. No custody. No trading. No execution.
+        </div>
+
+        {/* Main value prop */}
+        <div style={{fontSize:16,color:"rgba(240,230,204,0.88)",lineHeight:1.7,marginBottom:24,maxWidth:400,fontWeight:500}}>
+          We unify fragmented multi-bank wealth into one discreet AI-powered ecosystem — turning idle assets into instant liquidity.
+        </div>
+
+        {/* Bullet */}
+        <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:36,maxWidth:380,textAlign:"left"}}>
+          <span style={{color:"#C8A060",fontSize:18,flexShrink:0,lineHeight:1.5}}>•</span>
+          <div style={{fontSize:13,color:"rgba(240,230,204,0.70)",lineHeight:1.65}}>
+            For Ultra-High-Net-Worth Individuals, Private Bankers and Family Offices with €10M+ portfolios
+          </div>
+        </div>
+
+        {/* CTA Button */}
+        <button onClick={onEnter} style={{width:"100%",maxWidth:380,background:"linear-gradient(135deg,#C8A060,#DDB87A)",color:"#08090f",border:"none",borderRadius:4,padding:"17px",fontSize:13,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",boxShadow:"0 8px 32px rgba(200,160,60,0.30)",marginBottom:14}}>
+          Enter Platform →
+        </button>
+
+        <div style={{fontSize:9,color:"rgba(200,160,60,0.35)",letterSpacing:"0.15em",textTransform:"uppercase"}}>
+          Monaco Finance International · Private & Confidential
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [showWelcome,setShowWelcome]=useState(()=>!localStorage.getItem("mfi_visited"));
   const [tab,setTab]=useState("dashboard");
@@ -233,15 +322,16 @@ function App(){
   const [newItem,setNewItem]=useState({});
   const [priceLoading,setPL]=useState(false);
   const [lastUpdate,setLU]=useState("29.05.2026");
-  const [apiKey,setApiKey]=useState(()=>sessionStorage.getItem("mfi_key")||"");
-  const [showKeyModal,setShowKeyModal]=useState(false);
-  const [keyInput,setKeyInput]=useState("");
   const [msgs,setMsgs]=useState([{role:"assistant",text:"Bonjour. Je suis AI Max — ваш персональный финансовый советник Monaco Finance International.\n\nЯ знаю ваш полный портфель, недвижимость и ломбардные лимиты в реальном времени.\n\nСпросите меня о стратегии, конкретной позиции или кредитных сценариях.\n\n— AI Max · Monaco Finance International"}]);
   const [query,setQuery]=useState("");
   const [aiLoading,setAIL]=useState(false);
   const [simLTV,setSimLTV]=useState(70);
   const [simRate,setSimRate]=useState(1.2);
   const endRef=useRef(null);
+
+  const enterApp=()=>{localStorage.setItem("mfi_visited","1");setShowWelcome(false);};
+
+  if(showWelcome) return <LandingPage onEnter={enterApp}/>;
 
   const gross=rows.filter(r=>r.value>0).reduce((s,r)=>s+r.value,0);
   const net=rows.reduce((s,r)=>s+r.value,0);
@@ -259,24 +349,12 @@ function App(){
   const totalCost=rows.filter(r=>r.qty>0&&r.avgCost>0).reduce((s,r)=>s+r.avgCost*r.qty/FX,0);
   const totalPnLPct=totalCost>0?(totalPnL/totalCost)*100:0;
 
+  const portfolioContext=`Portfolio total: ${fe(totalA,true)} | Lombard: ${fe(totalL,true)} | P&L: ${fp(totalPnLPct)} | Positions: ${rows.map(r=>`${r.name} ${fe(r.value,true)}`).join(", ")}`;
+
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"})},[msgs]);
   useEffect(()=>{saveData("mfi_rows",rows);},[rows]);
   useEffect(()=>{saveData("mfi_re",realestate);},[realestate]);
   useEffect(()=>{saveData("mfi_str",structured);},[structured]);
-
-  const saveKey=()=>{const k=keyInput.trim();if(!k)return;setApiKey(k);sessionStorage.setItem("mfi_key",k);setShowKeyModal(false);setKeyInput("");};
-
-  const callAPI=async(body)=>{
-    const k=apiKey||sessionStorage.getItem("mfi_key");
-    if(!k)throw new Error("no_key");
-    return fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify(body)
-    });
-  };
-
-  const TD_KEY="e317ea9a7e334aada42f0f58d9b92365";
 
   const refreshPrices=async()=>{
     setPL(true);
@@ -284,23 +362,23 @@ function App(){
     if(!tickers.length){setPL(false);return;}
     try{
       const newPrices={};
-      // Twelve Data supports batch: up to 8 symbols per request
-      const batch=tickers.join(",");
-      const res=await fetch(`https://api.twelvedata.com/price?symbol=${batch}&apikey=${TD_KEY}`);
-      const d=await res.json();
-      // If single ticker, response is {price:"123"}, if multiple {AAPL:{price:"123"},...}
-      if(tickers.length===1){
-        if(d.price) newPrices[tickers[0]]=parseFloat(d.price);
-      } else {
-        for(const t of tickers){
-          if(d[t]?.price) newPrices[t]=parseFloat(d[t].price);
+      const batch=tickers.filter(t=>t!=="XAU").join(",");
+      if(batch){
+        const res=await fetch(`/API/prices.js?symbol=${encodeURIComponent(batch)}&interval=1day&outputsize=1`);
+        const d=await res.json();
+        if(tickers.filter(t=>t!=="XAU").length===1){
+          const t=tickers.filter(t=>t!=="XAU")[0];
+          if(d.values&&d.values[0]) newPrices[t]=parseFloat(d.values[0].close);
+        } else {
+          for(const t of tickers.filter(t=>t!=="XAU")){
+            if(d[t]?.values?.[0]) newPrices[t]=parseFloat(d[t].values[0].close);
+          }
         }
       }
-      // XAU special: Twelve Data uses XAU/USD
-      if(tickers.includes("XAU")&&!newPrices["XAU"]){
-        const xauRes=await fetch(`https://api.twelvedata.com/price?symbol=XAU/USD&apikey=${TD_KEY}`);
+      if(tickers.includes("XAU")){
+        const xauRes=await fetch(`/API/prices.js?symbol=XAU%2FUSD&interval=1day&outputsize=1`);
         const xauD=await xauRes.json();
-        if(xauD.price) newPrices["XAU"]=parseFloat(xauD.price);
+        if(xauD.values&&xauD.values[0]) newPrices["XAU"]=parseFloat(xauD.values[0].close);
       }
       if(Object.keys(newPrices).length>0){
         setRows(prev=>prev.map(r=>{
@@ -317,25 +395,27 @@ function App(){
   };
 
   const sendAI=async()=>{
-    if(!apiKey&&!sessionStorage.getItem("mfi_key")){setShowKeyModal(true);return;}
     if(!query.trim()||aiLoading)return;
     const q=query.trim();setQuery("");setMsgs(m=>[...m,{role:"user",text:q}]);setAIL(true);
     const ps=rows.map(r=>`${r.name}(${r.cat},L${Math.round(LR[r.cat]*100)}%):${fe(r.value,true)}${r.ticker?`@$${r.price}avg$${r.avgCost}qty${r.qty}`:""}`).join(";");
     try{
-      const res=await callAPI({model:"claude-sonnet-4-20250514",max_tokens:1000,tools:[{type:"web_search_20250305",name:"web_search"}],
-        system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds en russe ou anglais selon la langue du client. Concis, 4 paragraphes max, sans emojis.
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,tools:[{type:"web_search_20250305",name:"web_search"}],
+          system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds en russe ou anglais selon la langue du client. Concis, 4 paragraphes max, sans emojis.
 Portfolio: ${ps}
-Real Estate: Villa Rebecca €9.5M, Tenao €2.8M | Structured: ${fe(strTotal,true)}
+Real Estate: ${fe(reTotal,true)} | Structured: ${fe(strTotal,true)}
 Assets: ${fe(totalA,true)} | Lombard: ${fe(totalL,true)} | Liquidity: ${fe(liquidity,true)} | P&L: ${fp(totalPnLPct)}
 FX: 1USD=${(1/FX).toFixed(4)}EUR | Date: ${lastUpdate}
 Termine toujours par — AI Max`,
-        messages:[...msgs.slice(-8).map(m=>({role:m.role,content:m.text})),{role:"user",content:q}]});
+          messages:[...msgs.slice(-8).map(m=>({role:m.role,content:m.text})),{role:"user",content:q}]})
+      });
       const d=await res.json();
       const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Service unavailable.";
       setMsgs(m=>[...m,{role:"assistant",text:txt}]);
     }catch(e){
-      if(e.message==="no_key"){setShowKeyModal(true);setMsgs(m=>m.slice(0,-1));}
-      else setMsgs(m=>[...m,{role:"assistant",text:"Ошибка соединения.\n— AI Max"}]);
+      setMsgs(m=>[...m,{role:"assistant",text:"Ошибка соединения.\n— AI Max"}]);
     }
     setAIL(false);
   };
@@ -348,8 +428,7 @@ Termine toujours par — AI Max`,
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,color:C.cream,display:"flex",flexDirection:"column"}}>
-
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"10px 15px",position:"sticky",top:0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -363,7 +442,6 @@ Termine toujours par — AI Max`,
             <button onClick={refreshPrices} disabled={priceLoading} style={{background:"rgba(200,160,96,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:7,padding:"5px 10px",color:priceLoading?C.gray:C.goldL,fontSize:9,cursor:priceLoading?"not-allowed":"pointer",letterSpacing:"0.05em"}}>
               {priceLoading?"⟳ …":"⟳ Live"}
             </button>
-            <button onClick={()=>{setKeyInput(apiKey);setShowKeyModal(true);}} style={{background:"rgba(200,160,96,0.06)",border:`1px solid ${C.border}`,borderRadius:7,padding:"5px 9px",color:apiKey?C.green:C.gray,fontSize:12,cursor:"pointer"}} title="API Key">{apiKey?"🔑":"🔒"}</button>
           </div>
         </div>
         <nav style={{display:"flex",gap:2,background:C.bg3,borderRadius:9,padding:3,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -377,7 +455,7 @@ Termine toujours par — AI Max`,
 
       <div style={{flex:1,padding:"13px 15px",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
 
-        {/* ── DASHBOARD ── */}
+        {/* DASHBOARD */}
         {tab==="dashboard"&&(
           <>
             <div style={{position:"relative",borderRadius:16,overflow:"hidden",marginBottom:13,minHeight:215,border:`1px solid ${C.borderHi}`}}>
@@ -406,17 +484,15 @@ Termine toujours par — AI Max`,
                 </div>
               </div>
             </div>
-
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
               <KPI label="Gross Financial" value={fe(gross,true)} col={C.goldL}/>
               <KPI label="Total Lombard" value={fe(totalL,true)} col={C.blue}/>
               <KPI label="Real Estate" value={fe(reTotal,true)} col="#40A0A0"/>
               <KPI label="P&L EUR" value={fe(totalPnL,true)} col={totalPnL>=0?C.green:C.red}/>
             </div>
-
             <div style={{display:"grid",gridTemplateColumns:"1.8fr 1fr",gap:11}}>
               <div style={card}>
-                <div style={sec}>Positions — tap for chart</div>
+                <div style={sec}>Positions — tap for chart + AI</div>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr>
                     <th style={TH}>Position</th>
@@ -427,10 +503,10 @@ Termine toujours par — AI Max`,
                     {rows.filter(r=>r.value!==0).sort((a,b)=>b.value-a.value).map(r=>{
                       const pnl=r.avgCost>0&&r.qty>0?((r.price-r.avgCost)/r.avgCost)*100:null;
                       return(
-                        <tr key={r.id} onClick={()=>r.ticker&&setDetail(r)} style={{cursor:r.ticker?"pointer":"default"}}
-                          onTouchStart={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.05)"}}
+                        <tr key={r.id} onClick={()=>setDetail(r)} style={{cursor:"pointer"}}
+                          onTouchStart={e=>{e.currentTarget.style.background="rgba(200,160,96,0.05)"}}
                           onTouchEnd={e=>{e.currentTarget.style.background="transparent"}}
-                          onMouseEnter={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
                           onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                           <td style={TD}><div style={{fontWeight:600,color:C.cream,fontSize:11}}>{r.name}</div><Tag cat={r.cat}/></td>
                           <td style={{...TD,textAlign:"right"}}>{pnl!==null&&<span style={{fontSize:11,color:pnl>=0?C.green:C.red,fontWeight:600}}>{fp(pnl)}</span>}</td>
@@ -476,11 +552,11 @@ Termine toujours par — AI Max`,
           </>
         )}
 
-        {/* ── PORTFOLIO ── */}
+        {/* PORTFOLIO */}
         {tab==="portfolio"&&(
           <div style={card}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
-              <div style={sec}>All Positions · Tap for Chart</div>
+              <div style={sec}>All Positions · Tap for Chart + AI</div>
               <button style={GBTN} onClick={()=>{setNewItem({name:"",ticker:"",isin:"",cat:"large",qty:"",price:"",avgCost:"",cur:"USD",bank:"Moncrief Bank"});setShowAdd("portfolio");}}>+ Add</button>
             </div>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
@@ -494,8 +570,8 @@ Termine toujours par — AI Max`,
                 {rows.map(r=>{
                   const pnl=r.avgCost>0&&r.qty>0?((r.price-r.avgCost)/r.avgCost)*100:null;
                   return(
-                    <tr key={r.id} onClick={()=>r.ticker&&setDetail(r)} style={{cursor:r.ticker?"pointer":"default"}}
-                      onMouseEnter={e=>{if(r.ticker)e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
+                    <tr key={r.id} onClick={()=>setDetail(r)} style={{cursor:"pointer"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="rgba(200,160,96,0.04)"}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                       <td style={TD}><div style={{fontWeight:600,color:C.cream}}>{r.name}</div>{r.isin&&<div style={{fontSize:8,color:C.gray}}>{r.isin}</div>}</td>
                       <td style={TD}><Tag cat={r.cat}/></td>
@@ -524,7 +600,7 @@ Termine toujours par — AI Max`,
           </div>
         )}
 
-        {/* ── REAL ESTATE ── */}
+        {/* REAL ESTATE */}
         {tab==="realestate"&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
@@ -560,7 +636,7 @@ Termine toujours par — AI Max`,
           </>
         )}
 
-        {/* ── STRUCTURED ── */}
+        {/* STRUCTURED */}
         {tab==="structured"&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
@@ -602,14 +678,14 @@ Termine toujours par — AI Max`,
           </>
         )}
 
-        {/* ── LOMBARD ── */}
+        {/* LOMBARD */}
         {tab==="lombard"&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
               <KPI label="Total Assets" value={fe(totalA,true)} col={C.gold}/>
               <KPI label="Total Lombard" value={fe(totalL,true)} col={C.blue}/>
               <KPI label="Liquidity 85%" value={fe(liquidity,true)} col={C.green}/>
-              <KPI label="Portfolio LTV" value={`${Math.round(totalL/totalA*100)}%`} col={C.goldL}/>
+              <KPI label="Portfolio LTV" value={`${Math.round(totalL/Math.max(totalA,1)*100)}%`} col={C.goldL}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1.7fr",gap:11}}>
               <div style={card}>
@@ -639,7 +715,6 @@ Termine toujours par — AI Max`,
                         <td style={{...TD,textAlign:"right",color:C.green,fontWeight:600}}>{fe(r.value*LR[r.cat])}</td>
                       </tr>
                     ))}
-                    <tr><td colSpan={3} style={{...TD,textAlign:"right",color:C.gray,fontSize:8,textTransform:"uppercase"}}>TOTAL FINANCIAL</td><td style={{...TD,textAlign:"right",color:C.gold,fontWeight:700,fontSize:13}}>{fe(lombF)}</td></tr>
                   </tbody>
                 </table>
                 <div style={{marginTop:9,padding:"9px 11px",background:"rgba(200,160,96,0.04)",border:`1px solid ${C.border}`,borderRadius:8,fontSize:9,color:C.gray,lineHeight:1.9}}>
@@ -650,7 +725,7 @@ Termine toujours par — AI Max`,
           </>
         )}
 
-        {/* ── SIMULATOR ── */}
+        {/* SIMULATOR */}
         {tab==="simulator"&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
@@ -674,16 +749,15 @@ Termine toujours par — AI Max`,
           </>
         )}
 
-        {/* ── AI MAX ── */}
+        {/* AI MAX */}
         {tab==="ai"&&(
           <div style={{...card,display:"flex",flexDirection:"column",height:"calc(100vh - 200px)"}}>
             <div style={{...sec,display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
               <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:C.bg}}>AI</div>
               AI Max · Personal Wealth Advisor
-              {!apiKey&&<span style={{marginLeft:"auto",fontSize:9,color:C.red,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowKeyModal(true)}>🔒 Set API Key</span>}
             </div>
             <div style={{marginBottom:8,display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["Lombard capacity","Gold strategy","IONQ outlook","Credit €500K","Portfolio risk"].map(q=>(
+              {["Lombard capacity","Gold strategy","Portfolio risk","Credit €500K","Анализ портфеля"].map(q=>(
                 <button key={q} onClick={()=>setQuery(q)} style={{background:"rgba(200,160,96,0.07)",border:`1px solid ${C.border}`,borderRadius:16,padding:"4px 10px",fontSize:10,color:C.goldL,cursor:"pointer"}}>{q}</button>
               ))}
             </div>
@@ -709,24 +783,7 @@ Termine toujours par — AI Max`,
         )}
       </div>
 
-      {detail&&<PositionDrawer row={detail} onClose={()=>setDetail(null)}/>}
-
-      {/* API KEY MODAL */}
-      {showKeyModal&&(
-        <Modal title="Anthropic API Key" onClose={()=>setShowKeyModal(false)}>
-          <div style={{fontSize:10,color:C.grayL,lineHeight:1.8,marginBottom:12}}>
-            Нужен для AI Max и ⟳ Live Prices.<br/>
-            Получить: <span style={{color:C.gold}}>console.anthropic.com</span> → API Keys
-          </div>
-          <input style={{...INP,fontSize:12,letterSpacing:"0.03em"}} type="password" placeholder="sk-ant-api03-…"
-            value={keyInput} onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}/>
-          {apiKey&&<div style={{fontSize:9,color:C.green,marginBottom:8}}>✓ Key saved for this session</div>}
-          <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}>
-            <button style={{background:"transparent",color:C.gray,border:`1px solid ${C.gray}`,borderRadius:8,padding:"7px 14px",fontSize:11,cursor:"pointer"}} onClick={()=>setShowKeyModal(false)}>Cancel</button>
-            <button style={GBTN} onClick={saveKey}>Save</button>
-          </div>
-        </Modal>
-      )}
+      {detail&&<PositionDrawer row={detail} onClose={()=>setDetail(null)} portfolioContext={portfolioContext}/>}
 
       {/* EDIT MODAL */}
       {editRow&&(
@@ -754,7 +811,7 @@ Termine toujours par — AI Max`,
       {/* ADD PORTFOLIO */}
       {showAdd==="portfolio"&&(
         <Modal title="Add Position" onClose={()=>setShowAdd(null)}>
-          {[{ph:"Name",key:"name"},{ph:"Ticker",key:"ticker"},{ph:"ISIN",key:"isin"}].map(f=>(
+          {[{ph:"Name",key:"name"},{ph:"Ticker (AAPL, XAU…)",key:"ticker"},{ph:"ISIN",key:"isin"}].map(f=>(
             <input key={f.key} style={INP} placeholder={f.ph} value={newItem[f.key]||""} onChange={e=>setNewItem(p=>({...p,[f.key]:f.key==="ticker"?e.target.value.toUpperCase():e.target.value}))}/>
           ))}
           <select style={INP} value={newItem.cat||"large"} onChange={e=>setNewItem(p=>({...p,cat:e.target.value}))}>
