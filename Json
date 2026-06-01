@@ -1,0 +1,22 @@
+{
+  "name": "Monaco Finance AI",
+  "short_name": "MFI",
+  "description": "The Private Banker in Your Pocket",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0C0A07",
+  "theme_color": "#C8A060",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/1C1610/C8A060?text=MFI",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/1C1610/C8A060?text=MFI",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
