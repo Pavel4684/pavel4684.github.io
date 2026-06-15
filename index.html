@@ -41,6 +41,12 @@ const {useState,useEffect,useRef}=React;
 
 const TD_KEY="e317ea9a7e334aada42f0f58d9b92365";
 
+// CACHE — предотвращает повторные запросы к API в течение 10 минут
+const PRICE_CACHE={};
+const CACHE_TTL=10*60*1000;
+const getCached=(key)=>{const c=PRICE_CACHE[key];if(c&&Date.now()-c.ts<CACHE_TTL)return c.data;return null;};
+const setCache=(key,data)=>{PRICE_CACHE[key]={data,ts:Date.now()};};
+
 const C={bg:"#0C0A07",bg1:"#111009",bg2:"#1C1610",bg3:"#231A0E",gold:"#C8A060",goldL:"#DDB87A",goldP:"#EDD9A8",cream:"#F0E6CC",green:"#4CAF7D",red:"#C0392B",blue:"#5B8FD4",gray:"#7A6E5E",grayL:"#A09080",border:"rgba(200,160,96,0.18)",borderHi:"rgba(200,160,96,0.40)"};
 const LR={xau:0.90,large:0.65,mid:0.35,small:0.35,cash:1.00,negative:0.00,bond:0.85,structured:0.55,realestate:0.60};
 const FX=1.16985;
@@ -55,6 +61,7 @@ function saveData(key,val){try{localStorage.setItem(key,JSON.stringify(val));}ca
 const calcVal=r=>{if(r.fixedVal!==undefined)return r.fixedVal;const u=r.qty*r.price;return r.cur==="USD"?u/FX:u;};
 const fe=(v,c=false)=>{const a=Math.abs(v),neg=v<0;let s;if(c){s=a>=1e6?`€${(a/1e6).toFixed(2)}M`:a>=1e3?`€${(a/1e3).toFixed(1)}K`:`€${a.toFixed(0)}`;}else{s=`€${a.toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}return neg?`−${s}`:s;};
 const fp=v=>{const s=v>=0?"+":"";return`${s}${v.toFixed(2)}%`;};
+const fmtDate=()=>{const n=new Date();return`${n.getDate().toString().padStart(2,"0")}.${(n.getMonth()+1).toString().padStart(2,"0")}.${n.getFullYear()} ${n.getHours().toString().padStart(2,"0")}:${n.getMinutes().toString().padStart(2,"0")}`;};
 
 function genHistory(cur,avg,days){
   const data=[];let p=avg*(1+(Math.random()-0.4)*0.15);
@@ -106,6 +113,13 @@ function PositionDrawer({row,onClose,portfolioContext}){
 
   const fetchChart=async(ticker,interval,outputsize)=>{
     if(!ticker)return;
+    // Проверяем кэш
+    const cacheKey=`chart_${ticker}_${interval}_${outputsize}`;
+    const cached=getCached(cacheKey);
+    if(cached){
+      setChartData(cached);
+      return;
+    }
     setChartLoading(true);
     try{
       const sym=ticker==="XAU"?"XAU/USD":ticker;
@@ -117,6 +131,7 @@ function PositionDrawer({row,onClose,portfolioContext}){
           lbl:v.datetime.slice(5,10),
           price:parseFloat(v.close)
         }));
+        setCache(cacheKey,parsed);
         setChartData(parsed);
       }
     }catch(e){console.error(e);}
@@ -144,7 +159,7 @@ function PositionDrawer({row,onClose,portfolioContext}){
         body:JSON.stringify({
           model:"claude-haiku-4-5-20251001",
           max_tokens:600,
-          system:`Tu es AI Max — conseiller financier privé Monaco Finance International. Réponds en russe, concis, 3 paragraphes max, sans emojis.
+          system:`Tu es AI Max — conseiller financier privé Monaco Finance International. Réponds dans la langue du client, concis, 3 paragraphes max, sans emojis.
 Position analysée: ${row.name} (${row.ticker||"—"}) | Prix: $${row.price} | Avg Cost: $${row.avgCost||"—"} | Qty: ${row.qty} | P&L: ${fp(pnlPct)} | Valeur: ${fe(calcVal(row),true)}
 ${portfolioContext}
 Termine par — AI Max`,
@@ -296,13 +311,15 @@ function App(){
   const [showAdd,setShowAdd]=useState(null);
   const [newItem,setNewItem]=useState({});
   const [priceLoading,setPL]=useState(false);
-  const [lastUpdate,setLU]=useState("29.05.2026");
+  const [liveCooldown,setLiveCooldown]=useState(0);
+  const [lastUpdate,setLU]=useState(fmtDate());
   const [msgs,setMsgs]=useState([{role:"assistant",text:"Bonjour. Je suis AI Max — ваш персональный финансовый советник Monaco Finance International.\n\nЯ знаю ваш полный портфель, недвижимость и ломбардные лимиты в реальном времени.\n\nСпросите меня о стратегии, конкретной позиции или кредитных сценариях.\n\n— AI Max · Monaco Finance International"}]);
   const [query,setQuery]=useState("");
   const [aiLoading,setAIL]=useState(false);
   const [simLTV,setSimLTV]=useState(70);
   const [simRate,setSimRate]=useState(1.2);
   const endRef=useRef(null);
+  const cooldownRef=useRef(null);
 
   const enterApp=()=>{localStorage.setItem("mfi_visited","1");setShowWelcome(false);};
   if(showWelcome) return <LandingPage onEnter={enterApp}/>;
@@ -329,7 +346,16 @@ function App(){
   useEffect(()=>{saveData("mfi_re",realestate);},[realestate]);
   useEffect(()=>{saveData("mfi_str",structured);},[structured]);
 
+  // Кулдаун таймер
+  useEffect(()=>{
+    if(liveCooldown>0){
+      cooldownRef.current=setTimeout(()=>setLiveCooldown(v=>v-1),1000);
+    }
+    return()=>clearTimeout(cooldownRef.current);
+  },[liveCooldown]);
+
   const refreshPrices=async()=>{
+    if(priceLoading||liveCooldown>0)return;
     setPL(true);
     const tickers=rows.filter(r=>r.ticker&&r.ticker!=="").map(r=>r.ticker);
     if(!tickers.length){setPL(false);return;}
@@ -360,11 +386,11 @@ function App(){
           if(isNaN(np)||np<=0)return r;
           return{...r,price:np,value:calcVal({...r,price:np})};
         }));
-        const now=new Date();
-        setLU(`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()} ${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}`);
+        setLU(fmtDate());
       }
     }catch(e){console.error("Price fetch error",e);}
     setPL(false);
+    setLiveCooldown(120); // 2 минуты кулдаун
   };
 
   const sendAI=async()=>{
@@ -376,7 +402,7 @@ function App(){
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,
-          system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds en russe ou anglais selon la langue du client. Concis, 4 paragraphes max, sans emojis.
+          system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds toujours dans la langue du client — si le client écrit en russe, réponds en russe; si en anglais, réponds en anglais; si en français, réponds en français. Concis, 4 paragraphes max, sans emojis.
 Portfolio: ${ps}
 Real Estate: ${fe(reTotal,true)} | Structured: ${fe(strTotal,true)}
 Assets: ${fe(totalA,true)} | Lombard: ${fe(totalL,true)} | Liquidity: ${fe(liquidity,true)} | P&L: ${fp(totalPnLPct)}
@@ -399,6 +425,9 @@ Termine toujours par — AI Max`,
   const TD={padding:"8px 3px",borderBottom:`1px solid rgba(200,160,96,0.05)`,verticalAlign:"middle"};
   const TABS=[{id:"dashboard",l:"Dashboard"},{id:"portfolio",l:"Portfolio"},{id:"realestate",l:"RE"},{id:"structured",l:"Structured"},{id:"lombard",l:"Lombard"},{id:"simulator",l:"Simulator"},{id:"ai",l:"AI Max"}];
 
+  const liveDisabled=priceLoading||liveCooldown>0;
+  const liveLabel=priceLoading?"⟳ …":liveCooldown>0?`⟳ ${liveCooldown}s`:"⟳ Live";
+
   return(
     <div style={{minHeight:"100vh",background:C.bg,color:C.cream,display:"flex",flexDirection:"column"}}>
       <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"10px 15px",position:"sticky",top:0,zIndex:100}}>
@@ -411,8 +440,8 @@ Termine toujours par — AI Max`,
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button onClick={refreshPrices} disabled={priceLoading} style={{background:"rgba(200,160,96,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:7,padding:"5px 10px",color:priceLoading?C.gray:C.goldL,fontSize:9,cursor:priceLoading?"not-allowed":"pointer",letterSpacing:"0.05em"}}>
-              {priceLoading?"⟳ …":"⟳ Live"}
+            <button onClick={refreshPrices} disabled={liveDisabled} style={{background:"rgba(200,160,96,0.08)",border:`1px solid ${C.borderHi}`,borderRadius:7,padding:"5px 10px",color:liveDisabled?C.gray:C.goldL,fontSize:9,cursor:liveDisabled?"not-allowed":"pointer",letterSpacing:"0.05em"}}>
+              {liveLabel}
             </button>
           </div>
         </div>
