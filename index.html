@@ -201,15 +201,18 @@ function PositionDrawer({row,onClose,portfolioContext,assistant}){
     setChartLoading(true);
     try{
       const sym=ticker==="XAU"?"XAU/USD":ticker;
-      const res=await fetch(`/api/prices.js?symbol=${encodeURIComponent(sym)}&interval=${interval}&outputsize=${outputsize}`);
+      // Charts use Twelve Data for real historical series (Finnhub free has no history)
+      const res=await fetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${interval}&outputsize=${outputsize}&apikey=${TD_KEY}`);
       const d=await res.json();
       if(d.values&&d.values.length>0){
         const vals=[...d.values].reverse();
         const parsed=vals.map(v=>({lbl:v.datetime.slice(5,10),price:parseFloat(v.close)}));
         setCache(cacheKey,parsed);
         setChartData(parsed);
+      } else {
+        setChartData(null);
       }
-    }catch(e){console.error(e);}
+    }catch(e){console.error(e);setChartData(null);}
     setChartLoading(false);
   };
 
@@ -286,7 +289,7 @@ Termine par — ${who.name}, Velvet Concierge`,
         </div>
         <div style={{background:C.bg,borderRadius:10,padding:"12px 8px 4px",border:`1px solid ${C.border}`,marginBottom:12}}>
           {chartLoading?<div style={{height:126,display:"flex",alignItems:"center",justifyContent:"center",color:C.gray,fontSize:11}}>Loading chart…</div>:<SVGChart data={displayData} avgCost={row.avgCost||0} color={color}/>}
-          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>{chartData?"Live data":"Illustrative · no ticker"} · Dashed = avg cost</div>
+          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>{chartData?"Twelve Data · Live":"Illustrative · no history"} · Dashed = avg cost</div>
         </div>
         {row.qty>0&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:14}}>
@@ -463,33 +466,24 @@ function App(){
   const refreshPrices=async()=>{
     if(priceLoading||liveCooldown>0)return;
     setPL(true);
-    const tickers=rows.filter(r=>r.ticker&&r.ticker!=="").map(r=>r.ticker);
-    if(!tickers.length){setPL(false);return;}
+    // Finnhub free has no commodities, so skip XAU (gold stays manual)
+    const tickers=rows.filter(r=>r.ticker&&r.ticker!==""&&r.ticker!=="XAU").map(r=>r.ticker);
+    if(!tickers.length){setPL(false);setLiveCooldown(120);return;}
     try{
       const newPrices={};
-      const batch=tickers.filter(t=>t!=="XAU").join(",");
-      if(batch){
-        const res=await fetch(`/api/prices.js?symbol=${encodeURIComponent(batch)}&interval=1day&outputsize=1`);
-        const d=await res.json();
-        if(tickers.filter(t=>t!=="XAU").length===1){
-          const t=tickers.filter(t=>t!=="XAU")[0];
-          if(d.values&&d.values[0]) newPrices[t]=parseFloat(d.values[0].close);
-        } else {
-          for(const t of tickers.filter(t=>t!=="XAU")){
-            if(d[t]?.values?.[0]) newPrices[t]=parseFloat(d[t].values[0].close);
-          }
-        }
-      }
-      if(tickers.includes("XAU")){
-        const xauRes=await fetch(`/api/prices.js?symbol=XAU%2FUSD&interval=1day&outputsize=1`);
-        const xauD=await xauRes.json();
-        if(xauD.values&&xauD.values[0]) newPrices["XAU"]=parseFloat(xauD.values[0].close);
-      }
+      // Query each ticker individually; server cache means this stays cheap
+      await Promise.all(tickers.map(async t=>{
+        try{
+          const res=await fetch(`/api/prices.js?symbol=${encodeURIComponent(t)}`);
+          const d=await res.json();
+          const px=d.price!==undefined?d.price:(d.values&&d.values[0]?parseFloat(d.values[0].close):null);
+          if(px!==null&&!isNaN(px)&&px>0) newPrices[t]=px;
+        }catch(e){console.error("price",t,e);}
+      }));
       if(Object.keys(newPrices).length>0){
         setRows(prev=>prev.map(r=>{
-          if(!r.ticker||!newPrices[r.ticker])return r;
+          if(!r.ticker||newPrices[r.ticker]===undefined)return r;
           const np=newPrices[r.ticker];
-          if(isNaN(np)||np<=0)return r;
           return{...r,price:np,value:calcVal({...r,price:np})};
         }));
         setLU(fmtDate());
