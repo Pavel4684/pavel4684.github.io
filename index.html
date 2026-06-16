@@ -11,11 +11,11 @@
 </script>  
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>AI Max — Monaco Finance</title>
+<title>Velvet — Monaco Finance International</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AI Max">
+<meta name="apple-mobile-web-app-title" content="Velvet">
 <meta name="theme-color" content="#070f28">
   <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js');</script>
@@ -31,6 +31,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:rgba(200,160,96,0.3);border-radius:2px}
 textarea{resize:none}
+@keyframes velvetFade{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes sparkle{0%,100%{opacity:0.4;transform:scale(0.85)}50%{opacity:1;transform:scale(1.15)}}
 </style>
 <script defer src="/_vercel/insights/script.js"></script>  
 </head>
@@ -41,7 +43,7 @@ const {useState,useEffect,useRef}=React;
 
 const TD_KEY="e317ea9a7e334aada42f0f58d9b92365";
 
-// CACHE — предотвращает повторные запросы к API в течение 10 минут
+// CACHE — prevents repeated API requests within 10 minutes
 const PRICE_CACHE={};
 const CACHE_TTL=10*60*1000;
 const getCached=(key)=>{const c=PRICE_CACHE[key];if(c&&Date.now()-c.ts<CACHE_TTL)return c.data;return null;};
@@ -54,6 +56,74 @@ const BANKS=["Moncrief Bank","UBS","Pictet","CFM Indosuez","BNP Paribas","Intera
 const CURS=["EUR","USD","CHF","GBP","JPY"];
 const CAP_OPTS=[{v:"large",l:"Equity >$1B → 65%"},{v:"mid",l:"Equity $500M–$1B → 35%"},{v:"small",l:"Equity <$500M → 35%"},{v:"xau",l:"Gold / XAU → 90%"},{v:"bond",l:"Bond → 85%"},{v:"structured",l:"Structured → 55%"},{v:"realestate",l:"Real Estate → 60%"},{v:"cash",l:"Cash → 100%"},{v:"negative",l:"Debit → 0%"}];
 const CAT_L={large:"Equity>1B",mid:"Equity 500M+",small:"Equity<500M",xau:"Gold",bond:"Bond",structured:"Structured",realestate:"Real Estate",cash:"Cash",negative:"Debit"};
+
+// ===== Velvet Concierge assistants =====
+const ASSISTANTS={
+  kate:{
+    name:"Kate",
+    tagline:"Your personal concierge",
+    persona:"Tu es Kate — l'assistante personnelle chaleureuse du service Velvet Concierge de Monaco Finance International. Ton style est chaleureux, attentionné, élégant et rassurant, tout en restant précis et professionnel.",
+    accent:"#DDB87A"
+  },
+  max:{
+    name:"Max",
+    tagline:"Your personal concierge",
+    persona:"Tu es Max — l'assistant personnel efficace du service Velvet Concierge de Monaco Finance International. Ton style est posé, direct, professionnel et orienté résultats, tout en restant courtois.",
+    accent:"#C8A060"
+  }
+};
+
+// SVG avatar: Kate (feminine silhouette) / Max (masculine silhouette), gold tones
+function Avatar({who,size=64}){
+  const a=ASSISTANTS[who];
+  const grad=who==="kate"?["#DDB87A","#C8A060"]:["#C8A060","#A9823F"];
+  return(
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={{display:"block"}}>
+      <defs>
+        <linearGradient id={`av-${who}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={grad[0]}/><stop offset="100%" stopColor={grad[1]}/>
+        </linearGradient>
+        <clipPath id={`clip-${who}`}><circle cx="32" cy="32" r="30"/></clipPath>
+      </defs>
+      <circle cx="32" cy="32" r="31" fill="#1C1610" stroke={`url(#av-${who})`} strokeWidth="1.6"/>
+      <g clipPath={`url(#clip-${who})`}>
+        {who==="kate"?(
+          <>
+            {/* hair */}
+            <path d="M16 30c0-11 7-18 16-18s16 7 16 18c0 6-2 10-4 13 1-6 0-12-3-15-3 4-9 6-15 6-3 0-6-1-8-3-1 4-2 8-1 12-1-4-1-9-1-13z" fill={`url(#av-${who})`} opacity="0.92"/>
+            {/* face */}
+            <circle cx="32" cy="31" r="11" fill="#F0E6CC" opacity="0.95"/>
+            {/* shoulders */}
+            <path d="M14 64c0-11 8-18 18-18s18 7 18 18z" fill={`url(#av-${who})`} opacity="0.92"/>
+          </>
+        ):(
+          <>
+            {/* hair short */}
+            <path d="M19 28c0-9 6-16 13-16s13 7 13 16c0 2-.3 4-1 6-1-5-2-9-5-11-2 2-5 3-9 3s-7-1-9-3c-1 3-1 7-2 11-.5-2-.0-4 0-6z" fill={`url(#av-${who})`} opacity="0.92"/>
+            {/* face */}
+            <circle cx="32" cy="31" r="11" fill="#F0E6CC" opacity="0.95"/>
+            {/* shoulders + collar */}
+            <path d="M13 64c0-12 9-19 19-19s19 7 19 19z" fill={`url(#av-${who})`} opacity="0.92"/>
+            <path d="M32 47l-5 8 5 4 5-4z" fill="#1C1610" opacity="0.85"/>
+          </>
+        )}
+      </g>
+    </svg>
+  );
+}
+
+// Velvet mark: gold V with a sparkle (AI hint)
+function VelvetMark({size=34}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" style={{display:"block"}}>
+      <defs><linearGradient id="vm" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#C8A060"/><stop offset="100%" stopColor="#DDB87A"/></linearGradient></defs>
+      <text x="19" y="29" textAnchor="middle" fontFamily="Palatino Linotype,Georgia,serif" fontSize="26" fontWeight="700" fill="url(#vm)">V</text>
+      <g style={{transformOrigin:"31px 11px",animation:"sparkle 2.4s ease-in-out infinite"}}>
+        <path d="M31 6l1.4 3.6L36 11l-3.6 1.4L31 16l-1.4-3.6L26 11l3.6-1.4z" fill="#EDD9A8"/>
+      </g>
+    </svg>
+  );
+}
 
 const INIT=[];const INIT_RE=[];const INIT_STR=[];
 function loadData(key,def){try{const d=localStorage.getItem(key);return d?JSON.parse(d):def;}catch{return def;}}
@@ -69,7 +139,7 @@ function genHistory(cur,avg,days){
   for(let i=0;i<days;i++){
     p=Math.max(p+trend+p*(Math.random()-0.48)*0.025,cur*0.05);
     const d=new Date();d.setDate(d.getDate()-(days-i));
-    const lbl=days<=7?d.toLocaleDateString("fr-FR",{weekday:"short"}):days<=31?d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"}):d.toLocaleDateString("fr-FR",{month:"short",year:"2-digit"});
+    const lbl=days<=7?d.toLocaleDateString("en-GB",{weekday:"short"}):days<=31?d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}):d.toLocaleDateString("en-GB",{month:"short",year:"2-digit"});
     data.push({lbl,price:parseFloat(p.toFixed(3))});
   }
   data[data.length-1].price=cur;return data;
@@ -98,13 +168,14 @@ function SVGChart({data,avgCost,color}){
   );
 }
 
-function PositionDrawer({row,onClose,portfolioContext}){
+function PositionDrawer({row,onClose,portfolioContext,assistant}){
   const [tf,setTf]=useState("1M");
   const [chartData,setChartData]=useState(null);
   const [chartLoading,setChartLoading]=useState(false);
   const [aiQ,setAIQ]=useState("");
   const [aiAns,setAIAns]=useState("");
   const [aiLoading,setAILoading]=useState(false);
+  const who=ASSISTANTS[assistant];
 
   const days=tf==="1W"?7:tf==="1M"?30:365;
   const color=row.price>=(row.avgCost||0)?C.green:C.red;
@@ -113,13 +184,9 @@ function PositionDrawer({row,onClose,portfolioContext}){
 
   const fetchChart=async(ticker,interval,outputsize)=>{
     if(!ticker)return;
-    // Проверяем кэш
     const cacheKey=`chart_${ticker}_${interval}_${outputsize}`;
     const cached=getCached(cacheKey);
-    if(cached){
-      setChartData(cached);
-      return;
-    }
+    if(cached){setChartData(cached);return;}
     setChartLoading(true);
     try{
       const sym=ticker==="XAU"?"XAU/USD":ticker;
@@ -127,10 +194,7 @@ function PositionDrawer({row,onClose,portfolioContext}){
       const d=await res.json();
       if(d.values&&d.values.length>0){
         const vals=[...d.values].reverse();
-        const parsed=vals.map(v=>({
-          lbl:v.datetime.slice(5,10),
-          price:parseFloat(v.close)
-        }));
+        const parsed=vals.map(v=>({lbl:v.datetime.slice(5,10),price:parseFloat(v.close)}));
         setCache(cacheKey,parsed);
         setChartData(parsed);
       }
@@ -159,17 +223,17 @@ function PositionDrawer({row,onClose,portfolioContext}){
         body:JSON.stringify({
           model:"claude-haiku-4-5-20251001",
           max_tokens:600,
-          system:`Tu es AI Max — conseiller financier privé Monaco Finance International. Réponds dans la langue du client, concis, 3 paragraphes max, sans emojis.
+          system:`${who.persona} Réponds toujours dans la langue du client. Concis, 3 paragraphes max, sans emojis.
 Position analysée: ${row.name} (${row.ticker||"—"}) | Prix: $${row.price} | Avg Cost: $${row.avgCost||"—"} | Qty: ${row.qty} | P&L: ${fp(pnlPct)} | Valeur: ${fe(calcVal(row),true)}
 ${portfolioContext}
-Termine par — AI Max`,
+Termine par — ${who.name}, Velvet Concierge`,
           messages:[{role:"user",content:aiQ}]
         })
       });
       const d=await res.json();
-      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Ошибка.";
+      const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Service unavailable.";
       setAIAns(txt);
-    }catch(e){setAIAns("Ошибка соединения.");}
+    }catch(e){setAIAns("Connection error.");}
     setAILoading(false);
   };
 
@@ -210,8 +274,8 @@ Termine par — AI Max`,
           ))}
         </div>
         <div style={{background:C.bg,borderRadius:10,padding:"12px 8px 4px",border:`1px solid ${C.border}`,marginBottom:12}}>
-          {chartLoading?<div style={{height:126,display:"flex",alignItems:"center",justifyContent:"center",color:C.gray,fontSize:11}}>Загрузка графика…</div>:<SVGChart data={displayData} avgCost={row.avgCost||0} color={color}/>}
-          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>{chartData?"Twelve Data · Live":"Illustrative · no ticker"} · Dashed = avg cost</div>
+          {chartLoading?<div style={{height:126,display:"flex",alignItems:"center",justifyContent:"center",color:C.gray,fontSize:11}}>Loading chart…</div>:<SVGChart data={displayData} avgCost={row.avgCost||0} color={color}/>}
+          <div style={{textAlign:"center",fontSize:8,color:C.gray,paddingBottom:4}}>{chartData?"Live data":"Illustrative · no ticker"} · Dashed = avg cost</div>
         </div>
         {row.qty>0&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:14}}>
@@ -224,20 +288,23 @@ Termine par — AI Max`,
           </div>
         )}
         <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12}}>
-          <div style={{fontSize:9,color:C.gold,letterSpacing:"0.15em",textTransform:"uppercase",marginBottom:8,fontWeight:700}}>🤖 AI Max — Анализ позиции</div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <Avatar who={assistant} size={26}/>
+            <div style={{fontSize:9,color:C.gold,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:700}}>{who.name} · Position Analysis</div>
+          </div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
-            {["Стоит ли держать?","Риски?","Цель по цене?","Докупить?"].map(q=>(
+            {["Should I hold?","Risks?","Price target?","Buy more?"].map(q=>(
               <button key={q} onClick={()=>setAIQ(q)} style={{background:"rgba(200,160,96,0.07)",border:`1px solid ${C.border}`,borderRadius:14,padding:"4px 9px",fontSize:9,color:C.goldL,cursor:"pointer"}}>{q}</button>
             ))}
           </div>
           <div style={{display:"flex",gap:6}}>
-            <textarea style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px",color:C.cream,fontSize:12,outline:"none",height:52}} placeholder="Спросите AI Max об этой позиции…" value={aiQ} onChange={e=>setAIQ(e.target.value)}/>
+            <textarea style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px",color:C.cream,fontSize:12,outline:"none",height:52}} placeholder={`Ask ${who.name} about this position…`} value={aiQ} onChange={e=>setAIQ(e.target.value)}/>
             <button onClick={askAI} disabled={aiLoading} style={{background:`linear-gradient(135deg,${C.gold},${C.goldL})`,color:C.bg,border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:aiLoading?"not-allowed":"pointer"}}>{aiLoading?"…":"→"}</button>
           </div>
           {(aiLoading||aiAns)&&(
             <div style={{marginTop:10,background:C.bg3,border:`1px solid rgba(200,160,96,0.12)`,borderRadius:10,padding:"10px 12px"}}>
-              <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:5,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>
-              {aiLoading?<div style={{color:C.gray,fontSize:11}}>Анализирую…</div>:<div style={{fontSize:11,lineHeight:1.75,color:C.cream,whiteSpace:"pre-wrap"}}>{aiAns}</div>}
+              <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:5,textTransform:"uppercase"}}>{who.name} · Velvet Concierge</div>
+              {aiLoading?<div style={{color:C.gray,fontSize:11}}>Analysing…</div>:<div style={{fontSize:11,lineHeight:1.75,color:C.cream,whiteSpace:"pre-wrap"}}>{aiAns}</div>}
             </div>
           )}
         </div>
@@ -300,9 +367,34 @@ function LandingPage({onEnter}){
   );
 }
 
+// Velvet welcome / assistant chooser
+function VelvetWelcome({onChoose}){
+  return(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"30px 16px",animation:"velvetFade 0.5s ease"}}>
+      <div style={{marginBottom:14}}><VelvetMark size={56}/></div>
+      <div style={{fontSize:20,fontWeight:700,color:C.gold,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:6}}>Velvet Concierge</div>
+      <div style={{fontSize:13,color:C.grayL,lineHeight:1.7,maxWidth:340,marginBottom:8}}>Welcome. I'm your personal concierge at Monaco Finance International.</div>
+      <div style={{fontSize:12,color:C.gray,lineHeight:1.7,maxWidth:340,marginBottom:26,fontStyle:"italic"}}>From a stock price to the cost of fuel in Monaco — ask me about your portfolio, markets, strategy, or daily life on the Riviera.</div>
+      <div style={{fontSize:10,color:C.gold,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14}}>Choose your assistant</div>
+      <div style={{display:"flex",gap:16}}>
+        {["kate","max"].map(w=>(
+          <button key={w} onClick={()=>onChoose(w)} style={{background:C.bg2,border:`1px solid ${C.borderHi}`,borderRadius:14,padding:"18px 22px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:10,transition:"all .2s"}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=C.gold}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=C.borderHi}>
+            <Avatar who={w} size={66}/>
+            <div style={{fontSize:15,fontWeight:700,color:C.cream}}>{ASSISTANTS[w].name}</div>
+            <div style={{fontSize:9,color:C.gray,maxWidth:90,lineHeight:1.4}}>{w==="kate"?"Warm & attentive":"Direct & efficient"}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [showWelcome,setShowWelcome]=useState(()=>!localStorage.getItem("mfi_visited"));
   const [tab,setTab]=useState("dashboard");
+  const [assistant,setAssistant]=useState(()=>localStorage.getItem("mfi_assistant")||null);
   const [rows,setRows]=useState(()=>loadData("mfi_rows",INIT).map(r=>({...r,value:calcVal(r)})));
   const [realestate,setRE]=useState(()=>loadData("mfi_re",INIT_RE));
   const [structured,setSTR]=useState(()=>loadData("mfi_str",INIT_STR));
@@ -313,7 +405,7 @@ function App(){
   const [priceLoading,setPL]=useState(false);
   const [liveCooldown,setLiveCooldown]=useState(0);
   const [lastUpdate,setLU]=useState(fmtDate());
-  const [msgs,setMsgs]=useState([{role:"assistant",text:"Bonjour. Je suis AI Max — ваш персональный финансовый советник Monaco Finance International.\n\nЯ знаю ваш полный портфель, недвижимость и ломбардные лимиты в реальном времени.\n\nСпросите меня о стратегии, конкретной позиции или кредитных сценариях.\n\n— AI Max · Monaco Finance International"}]);
+  const [msgs,setMsgs]=useState([]);
   const [query,setQuery]=useState("");
   const [aiLoading,setAIL]=useState(false);
   const [simLTV,setSimLTV]=useState(70);
@@ -323,6 +415,12 @@ function App(){
 
   const enterApp=()=>{localStorage.setItem("mfi_visited","1");setShowWelcome(false);};
   if(showWelcome) return <LandingPage onEnter={enterApp}/>;
+
+  const chooseAssistant=(w)=>{
+    localStorage.setItem("mfi_assistant",w);
+    setAssistant(w);
+    setMsgs([{role:"assistant",text:greeting(w)}]);
+  };
 
   const gross=rows.filter(r=>r.value>0).reduce((s,r)=>s+r.value,0);
   const net=rows.reduce((s,r)=>s+r.value,0);
@@ -346,11 +444,8 @@ function App(){
   useEffect(()=>{saveData("mfi_re",realestate);},[realestate]);
   useEffect(()=>{saveData("mfi_str",structured);},[structured]);
 
-  // Кулдаун таймер
   useEffect(()=>{
-    if(liveCooldown>0){
-      cooldownRef.current=setTimeout(()=>setLiveCooldown(v=>v-1),1000);
-    }
+    if(liveCooldown>0){cooldownRef.current=setTimeout(()=>setLiveCooldown(v=>v-1),1000);}
     return()=>clearTimeout(cooldownRef.current);
   },[liveCooldown]);
 
@@ -390,11 +485,12 @@ function App(){
       }
     }catch(e){console.error("Price fetch error",e);}
     setPL(false);
-    setLiveCooldown(120); // 2 минуты кулдаун
+    setLiveCooldown(120);
   };
 
   const sendAI=async()=>{
     if(!query.trim()||aiLoading)return;
+    const who=ASSISTANTS[assistant];
     const q=query.trim();setQuery("");setMsgs(m=>[...m,{role:"user",text:q}]);setAIL(true);
     const ps=rows.map(r=>`${r.name}(${r.cat},L${Math.round(LR[r.cat]*100)}%):${fe(r.value,true)}${r.ticker?`@$${r.price}avg$${r.avgCost}qty${r.qty}`:""}`).join(";");
     try{
@@ -402,19 +498,19 @@ function App(){
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,
-          system:`Tu es AI Max — conseiller financier privé de Monaco Finance International. Réponds toujours dans la langue du client — si le client écrit en russe, réponds en russe; si en anglais, réponds en anglais; si en français, réponds en français. Concis, 4 paragraphes max, sans emojis.
+          system:`${who.persona} Réponds toujours dans la langue du client — si le client écrit en russe, réponds en russe; si en anglais, réponds en anglais; si en français, réponds en français. Concis, 4 paragraphes max, sans emojis.
 Portfolio: ${ps}
-Real Estate: ${fe(reTotal,true)} | Structured: ${fe(strTotal,true)}
+Real Assets (Heritage): ${fe(reTotal,true)} | Structured: ${fe(strTotal,true)}
 Assets: ${fe(totalA,true)} | Lombard: ${fe(totalL,true)} | Liquidity: ${fe(liquidity,true)} | P&L: ${fp(totalPnLPct)}
 FX: 1USD=${(1/FX).toFixed(4)}EUR | Date: ${lastUpdate}
-Termine toujours par — AI Max`,
+Termine toujours par — ${who.name}, Velvet Concierge`,
           messages:[...msgs.slice(-8).map(m=>({role:m.role,content:m.text})),{role:"user",content:q}]})
       });
       const d=await res.json();
       const txt=(d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")||"Service unavailable.";
       setMsgs(m=>[...m,{role:"assistant",text:txt}]);
     }catch(e){
-      setMsgs(m=>[...m,{role:"assistant",text:"Ошибка соединения.\n— AI Max"}]);
+      setMsgs(m=>[...m,{role:"assistant",text:`Connection error.\n— ${ASSISTANTS[assistant].name}`}]);
     }
     setAIL(false);
   };
@@ -423,7 +519,7 @@ Termine toujours par — AI Max`,
   const sec={fontSize:9,color:C.gold,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:10,fontWeight:700};
   const TH={color:C.gray,fontSize:9,letterSpacing:"0.09em",textTransform:"uppercase",textAlign:"left",paddingBottom:6,borderBottom:`1px solid ${C.border}`};
   const TD={padding:"8px 3px",borderBottom:`1px solid rgba(200,160,96,0.05)`,verticalAlign:"middle"};
-  const TABS=[{id:"dashboard",l:"Dashboard"},{id:"portfolio",l:"Portfolio"},{id:"realestate",l:"RE"},{id:"structured",l:"Structured"},{id:"lombard",l:"Lombard"},{id:"simulator",l:"Simulator"},{id:"ai",l:"AI Max"}];
+  const TABS=[{id:"dashboard",l:"Dashboard"},{id:"portfolio",l:"Portfolio"},{id:"realestate",l:"Heritage"},{id:"structured",l:"Structured"},{id:"lombard",l:"Lombard"},{id:"simulator",l:"Simulator"},{id:"ai",l:"Velvet"}];
 
   const liveDisabled=priceLoading||liveCooldown>0;
   const liveLabel=priceLoading?"⟳ …":liveCooldown>0?`⟳ ${liveCooldown}s`:"⟳ Live";
@@ -435,8 +531,8 @@ Termine toujours par — AI Max`,
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:34,height:34,borderRadius:9,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:C.bg,flexShrink:0,boxShadow:`0 3px 12px rgba(200,160,60,0.3)`}}>MFI</div>
             <div>
-              <div style={{fontSize:14,fontWeight:700,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase"}}>AI Max</div>
-              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em"}}>Monaco Finance · {lastUpdate}</div>
+              <div style={{fontSize:14,fontWeight:700,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase"}}>Monaco Finance</div>
+              <div style={{fontSize:8,color:C.gray,letterSpacing:"0.1em"}}>International · {lastUpdate}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -447,8 +543,8 @@ Termine toujours par — AI Max`,
         </div>
         <nav style={{display:"flex",gap:2,background:C.bg3,borderRadius:9,padding:3,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 9px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,letterSpacing:"0.04em",background:tab===t.id?`linear-gradient(135deg,${C.gold},${C.goldL})`:"transparent",color:tab===t.id?C.bg:C.gray,fontWeight:tab===t.id?700:400,whiteSpace:"nowrap",flexShrink:0,transition:"all .2s"}}>
-              {t.l}
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"5px 9px",borderRadius:7,border:"none",cursor:"pointer",fontSize:10,letterSpacing:"0.04em",background:tab===t.id?`linear-gradient(135deg,${C.gold},${C.goldL})`:"transparent",color:tab===t.id?C.bg:C.gray,fontWeight:tab===t.id?700:400,whiteSpace:"nowrap",flexShrink:0,transition:"all .2s",display:"flex",alignItems:"center",gap:4}}>
+              {t.id==="ai"&&<span style={{fontSize:12,fontWeight:700}}>V</span>}{t.l}
             </button>
           ))}
         </nav>
@@ -465,8 +561,8 @@ Termine toujours par — AI Max`,
                 <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:10}}>
                   <div style={{width:50,height:50,borderRadius:14,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:C.bg,boxShadow:`0 6px 24px rgba(200,160,60,0.40)`}}>MFI</div>
                   <div>
-                    <div style={{fontSize:21,fontWeight:700,color:C.gold,letterSpacing:"0.13em",textTransform:"uppercase",textShadow:`0 0 28px rgba(200,160,96,0.55)`}}>AI Max</div>
-                    <div style={{fontSize:9,color:C.grayL,letterSpacing:"0.2em",textTransform:"uppercase"}}>Monaco Finance International</div>
+                    <div style={{fontSize:21,fontWeight:700,color:C.gold,letterSpacing:"0.13em",textTransform:"uppercase",textShadow:`0 0 28px rgba(200,160,96,0.55)`}}>Monaco Finance</div>
+                    <div style={{fontSize:9,color:C.grayL,letterSpacing:"0.2em",textTransform:"uppercase"}}>International</div>
                   </div>
                 </div>
                 <div style={{fontSize:10,color:"rgba(200,190,160,0.72)",lineHeight:1.7,marginBottom:14}}>Private Wealth · Lombard Finance · Real Estate · AI Advisory</div>
@@ -486,7 +582,7 @@ Termine toujours par — AI Max`,
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
               <KPI label="Gross Financial" value={fe(gross,true)} col={C.goldL}/>
               <KPI label="Total Lombard" value={fe(totalL,true)} col={C.blue}/>
-              <KPI label="Real Estate" value={fe(reTotal,true)} col="#40A0A0"/>
+              <KPI label="Heritage" value={fe(reTotal,true)} col="#40A0A0"/>
               <KPI label="P&L EUR" value={fe(totalPnL,true)} col={totalPnL>=0?C.green:C.red}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1.8fr 1fr",gap:11}}>
@@ -519,7 +615,7 @@ Termine toujours par — AI Max`,
               <div style={{display:"flex",flexDirection:"column",gap:9}}>
                 <div style={card}>
                   <div style={sec}>Lombard</div>
-                  {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Real Estate",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
+                  {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Heritage",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
                     <div key={i} style={{marginBottom:9}}>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}>
                         <span style={{color:C.grayL}}>{item.l}</span>
@@ -600,13 +696,17 @@ Termine toujours par — AI Max`,
 
         {tab==="realestate"&&(
           <>
+            <div style={{...card,marginBottom:12,background:"rgba(200,160,96,0.05)"}}>
+              <div style={{fontSize:11,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Heritage</div>
+              <div style={{fontSize:11,color:C.grayL,lineHeight:1.6}}>Your tangible wealth — real estate, yachts, aircraft, fine art, classic cars and other exclusive assets. Add anything of value to reflect your full estate and unlock Lombard liquidity against it.</div>
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:12}}>
-              <KPI label="Total RE" value={fe(reTotal,true)} col={C.gold}/>
+              <KPI label="Total Heritage" value={fe(reTotal,true)} col={C.gold}/>
               <KPI label="Lombard 60%" value={fe(reLomb,true)} col={C.green}/>
             </div>
             <div style={card}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div style={sec}>Properties</div>
+                <div style={sec}>Assets</div>
                 <button style={GBTN} onClick={()=>{setNewItem({name:"",location:"",value:"",currency:"EUR",ownership:"",bank:"Moncrief Bank",lombard_pct:0.60,status:"Active",notes:""});setShowAdd("realestate");}}>+ Add</button>
               </div>
               {realestate.map(r=>(
@@ -685,7 +785,7 @@ Termine toujours par — AI Max`,
             <div style={{display:"grid",gridTemplateColumns:"1fr 1.7fr",gap:11}}>
               <div style={card}>
                 <div style={sec}>By Class</div>
-                {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Real Estate",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
+                {[{l:"Financial",v:lombF,t:gross,col:C.gold},{l:"Heritage",v:reLomb,t:reTotal,col:"#40A0A0"},{l:"Structured",v:strLomb,t:strTotal,col:"#C08040"}].map((item,i)=>(
                   <div key={i} style={{marginBottom:12}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}><span style={{color:C.cream,fontWeight:600}}>{item.l}</span><span style={{color:C.green,fontWeight:700}}>{fe(item.v,true)}</span></div>
                     <PctBar pct={item.t>0?item.v/item.t:0} col={item.col}/>
@@ -744,39 +844,53 @@ Termine toujours par — AI Max`,
         )}
 
         {tab==="ai"&&(
+          !assistant?(
+            <div style={{...card,minHeight:"calc(100vh - 200px)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <VelvetWelcome onChoose={chooseAssistant}/>
+            </div>
+          ):(
           <div style={{...card,display:"flex",flexDirection:"column",height:"calc(100vh - 200px)"}}>
-            <div style={{...sec,display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${C.gold},${C.goldL})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:C.bg}}>AI</div>
-              AI Max · Personal Wealth Advisor
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <Avatar who={assistant} size={30}/>
+                <div>
+                  <div style={{fontSize:11,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:700}}>{ASSISTANTS[assistant].name} · Velvet Concierge</div>
+                  <div style={{fontSize:8,color:C.gray,letterSpacing:"0.05em"}}>{assistant==="kate"?"Warm & attentive":"Direct & efficient"}</div>
+                </div>
+              </div>
+              <button onClick={()=>{const other=assistant==="kate"?"max":"kate";chooseAssistant(other);}} style={{background:"rgba(200,160,96,0.08)",border:`1px solid ${C.border}`,borderRadius:14,padding:"4px 10px",fontSize:9,color:C.goldL,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                ⇄ {assistant==="kate"?"Max":"Kate"}
+              </button>
             </div>
             <div style={{marginBottom:8,display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["Lombard capacity","Gold strategy","Portfolio risk","Credit €500K","Анализ портфеля"].map(q=>(
+              {["Lombard capacity","Gold strategy","Portfolio risk","Credit €500K","Portfolio analysis"].map(q=>(
                 <button key={q} onClick={()=>setQuery(q)} style={{background:"rgba(200,160,96,0.07)",border:`1px solid ${C.border}`,borderRadius:16,padding:"4px 10px",fontSize:10,color:C.goldL,cursor:"pointer"}}>{q}</button>
               ))}
             </div>
             <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:9,padding:"2px 0",WebkitOverflowScrolling:"touch"}}>
               {msgs.map((m,i)=>(
                 <div key={i} style={{maxWidth:"86%",alignSelf:m.role==="user"?"flex-end":"flex-start",background:m.role==="user"?"rgba(200,160,96,0.09)":C.bg3,border:m.role==="user"?`1px solid ${C.borderHi}`:`1px solid rgba(200,160,96,0.07)`,borderRadius:m.role==="user"?"12px 12px 0 12px":"12px 12px 12px 0",padding:"9px 12px",fontSize:11,lineHeight:1.75,color:m.role==="user"?C.goldP:C.cream}}>
-                  {m.role==="assistant"&&<div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>}
+                  {m.role==="assistant"&&<div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>{ASSISTANTS[assistant].name} · Velvet Concierge</div>}
                   <div style={{whiteSpace:"pre-wrap"}}>{m.text}</div>
                 </div>
               ))}
               {aiLoading&&<div style={{maxWidth:"86%",background:C.bg3,borderRadius:"12px 12px 12px 0",padding:"9px 12px"}}>
-                <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>AI Max · Monaco Finance</div>
+                <div style={{fontSize:8,color:C.gold,letterSpacing:"0.12em",marginBottom:3,textTransform:"uppercase"}}>{ASSISTANTS[assistant].name} · Velvet Concierge</div>
                 <span style={{color:C.gray,fontSize:11}}>Analysing…</span>
               </div>}
               <div ref={endRef}/>
             </div>
             <div style={{display:"flex",gap:6,padding:"9px 0 0",borderTop:`1px solid ${C.border}`}}>
-              <input style={{...INP,flex:1,marginBottom:0}} placeholder="Спросите AI Max о портфеле, рынках, стратегии…"
+              <input style={{...INP,flex:1,marginBottom:0}} placeholder={`Ask ${ASSISTANTS[assistant].name} about your portfolio, markets, strategy…`}
                 value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendAI()}/>
               <button style={GBTN} onClick={sendAI} disabled={aiLoading}>{aiLoading?"…":"→"}</button>
             </div>
           </div>
+          )
         )}
       </div>
 
-      {detail&&<PositionDrawer row={detail} onClose={()=>setDetail(null)} portfolioContext={portfolioContext}/>}
+      {detail&&<PositionDrawer row={detail} onClose={()=>setDetail(null)} portfolioContext={portfolioContext} assistant={assistant||"kate"}/>}
 
       {editRow&&(
         <Modal title="Edit Position" onClose={()=>setEditRow(null)}>
@@ -833,8 +947,8 @@ Termine toujours par — AI Max`,
       )}
 
       {showAdd==="realestate"&&(
-        <Modal title="Add Property" onClose={()=>setShowAdd(null)}>
-          {[{ph:"Property name",key:"name"},{ph:"Location",key:"location"},{ph:"Market value",key:"value",t:"number"},{ph:"Ownership entity",key:"ownership"},{ph:"Notes",key:"notes"}].map(f=>(
+        <Modal title="Add Heritage Asset" onClose={()=>setShowAdd(null)}>
+          {[{ph:"Asset name (Villa, Yacht, Aircraft, Art…)",key:"name"},{ph:"Location",key:"location"},{ph:"Market value",key:"value",t:"number"},{ph:"Ownership entity",key:"ownership"},{ph:"Notes",key:"notes"}].map(f=>(
             <input key={f.key} style={INP} placeholder={f.ph} type={f.t||"text"} value={newItem[f.key]||""} onChange={e=>setNewItem(p=>({...p,[f.key]:e.target.value}))}/>
           ))}
           <select style={INP} value={newItem.currency||"EUR"} onChange={e=>setNewItem(p=>({...p,currency:e.target.value}))}>
@@ -875,6 +989,11 @@ Termine toujours par — AI Max`,
       )}
     </div>
   );
+}
+
+function greeting(w){
+  const n=ASSISTANTS[w].name;
+  return `Welcome. I'm ${n} — your personal concierge at Velvet, Monaco Finance International.\n\nI have real-time visibility of your full portfolio, heritage assets and Lombard limits — and I'm here for anything, from a stock price to the cost of fuel in Monaco.\n\nAsk me about strategy, a specific position, credit scenarios, or daily life on the Riviera.\n\n— ${n}, Velvet Concierge`;
 }
 
 ReactDOM.render(React.createElement(App),document.getElementById('root'));
